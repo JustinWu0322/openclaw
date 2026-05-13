@@ -1747,6 +1747,15 @@ export type PluginPackageChannelDoctorCapabilities = {
   dmAllowFromMode?: "topOnly" | "topOrNested" | "nestedOnly";
   groupModel?: "sender" | "route" | "hybrid";
   groupAllowFromFallbackToAllowFrom?: boolean;
+  legacyDmAllowFromMigrationTarget?: "groupAllowFrom" | "groupSenderAllowFrom";
+  groupOwnerAllowFromFallbackToAllowFrom?: boolean;
+  legacyDmGroupOwnerAllowFromMigrationTarget?: "groupOwnerAllowFrom";
+  commandGroupAllowFromFallbackToAllowFrom?: boolean;
+  legacyDmCommandGroupAllowFromMigrationTarget?: "commandGroupAllowFrom";
+  commandAllowFromFallbackToAllowFrom?: boolean;
+  legacyDmCommandAllowFromMigrationTarget?: "commands.allowFrom";
+  elevatedAllowFromFallbackToAllowFrom?: boolean;
+  legacyDmElevatedAllowFromMigrationTarget?: "tools.elevated.allowFrom";
   warnOnEmptyGroupSenderAllowlist?: boolean;
 };
 

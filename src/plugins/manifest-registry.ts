@@ -41,6 +41,7 @@ import {
   type PluginManifestSetup,
   type PluginManifestToolMetadata,
   type PluginPackageChannel,
+  type PluginPackageChannelDoctorCapabilities,
   type PluginPackageInstall,
 } from "./manifest.js";
 import { checkMinHostVersion } from "./min-host-version.js";
@@ -175,6 +176,7 @@ export type PluginManifestRecord = {
     blurb?: string;
     preferOver?: readonly string[];
     commands?: PluginManifestChannelCommandDefaults;
+    doctorCapabilities?: PluginPackageChannelDoctorCapabilities;
   };
 };
 
@@ -485,6 +487,9 @@ function buildRecord(params: {
               ? { preferOver: params.candidate.packageManifest.channel.preferOver }
               : {}),
             ...(packageChannelCommands ? { commands: packageChannelCommands } : {}),
+            ...(params.candidate.packageManifest.channel.doctorCapabilities
+              ? { doctorCapabilities: params.candidate.packageManifest.channel.doctorCapabilities }
+              : {}),
           },
         }
       : {}),
