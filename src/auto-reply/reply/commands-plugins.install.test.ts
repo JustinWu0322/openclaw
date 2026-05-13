@@ -279,6 +279,35 @@ describe("handleCommands /plugins install", () => {
     });
   });
 
+  it("includes ClawHub trust details for blocked chat install failures", async () => {
+    const warning =
+      'ClawHub trust warning for "@openclaw/blocked-demo@1.2.3": scan=suspicious; moderation=blocked; blockedFromDownload=true; pending=false; stale=false; reasons=payload_string. Risk signals: blocked from download, scan status suspicious, moderation state blocked, payload_string.';
+    installPluginFromClawHubMock.mockResolvedValue({
+      ok: false,
+      code: "clawhub_download_blocked",
+      error: 'ClawHub release "@openclaw/blocked-demo@1.2.3" is blocked from download by ClawHub.',
+      warning,
+    });
+
+    await withTempHome("openclaw-command-plugins-home-", async () => {
+      const workspaceDir = await workspaceHarness.createWorkspace();
+      const params = buildPluginsParams(
+        "/plugins install clawhub:@openclaw/blocked-demo@1.2.3",
+        workspaceDir,
+      );
+      const result = await handlePluginsCommand(params, true);
+      if (result === null) {
+        throw new Error("expected plugin install result");
+      }
+
+      expect(result.reply?.text).toContain("blocked from download");
+      expect(result.reply?.text).toContain("scan=suspicious");
+      expect(result.reply?.text).toContain("moderation=blocked");
+      expect(result.reply?.text).toContain("payload_string");
+      expect(persistPluginInstallMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("refuses plugin installs in Nix mode before package installer side effects", async () => {
     const previousNixMode = process.env.OPENCLAW_NIX_MODE;
     process.env.OPENCLAW_NIX_MODE = "1";
