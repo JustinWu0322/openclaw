@@ -5,6 +5,14 @@ type PluginUpdateCliOutcome = {
   message: string;
 };
 
+function isClawHubRiskAcknowledgementSkippedOutcome(outcome: PluginUpdateCliOutcome): boolean {
+  return (
+    outcome.status === "skipped" &&
+    outcome.message.includes("ClawHub") &&
+    outcome.message.includes("--acknowledge-clawhub-risk")
+  );
+}
+
 export function logPluginUpdateOutcomes(params: {
   outcomes: readonly PluginUpdateCliOutcome[];
   log: (message: string) => void;
@@ -17,6 +25,9 @@ export function logPluginUpdateOutcomes(params: {
       continue;
     }
     if (outcome.status === "skipped") {
+      if (isClawHubRiskAcknowledgementSkippedOutcome(outcome)) {
+        hasErrors = true;
+      }
       params.log(theme.warn(outcome.message));
       continue;
     }
