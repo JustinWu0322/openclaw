@@ -2974,7 +2974,7 @@ describe("update-cli", () => {
     expect(lastNpmPluginUpdateCall()?.onClawHubRisk).toBeUndefined();
   });
 
-  it("sanitizes ClawHub risk prompt labels during post-update plugin work", async () => {
+  it("does not prompt for ClawHub risk during post-update plugin work when --yes is set", async () => {
     const tempDir = createCaseDir("openclaw-update");
     mockPackageInstallStatus(tempDir);
     setTty(true);
@@ -2983,6 +2983,22 @@ describe("update-cli", () => {
     await updateCommand({
       channel: "beta",
       yes: true,
+      restart: false,
+    });
+
+    expect(syncPluginCall()?.onClawHubRisk).toBeUndefined();
+    expect(npmPluginUpdateCall()?.onClawHubRisk).toBeUndefined();
+    expect(lastNpmPluginUpdateCall()?.onClawHubRisk).toBeUndefined();
+  });
+
+  it("sanitizes ClawHub risk prompt labels during post-update plugin work", async () => {
+    const tempDir = createCaseDir("openclaw-update");
+    mockPackageInstallStatus(tempDir);
+    setTty(true);
+    setStdoutTty(true);
+
+    await updateCommand({
+      channel: "beta",
       restart: false,
     });
 

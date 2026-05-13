@@ -182,7 +182,7 @@ function resolveUpdateClawHubRiskAcknowledgementOptions(opts: UpdateCommandOptio
   if (opts.acknowledgeClawHubRisk) {
     return { acknowledgeClawHubRisk: true };
   }
-  if (opts.json || !process.stdin.isTTY || !process.stdout.isTTY) {
+  if (opts.yes || opts.json || !process.stdin.isTTY || !process.stdout.isTTY) {
     return {};
   }
   return {
