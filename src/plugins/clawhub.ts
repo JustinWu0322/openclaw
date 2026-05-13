@@ -28,6 +28,7 @@ import {
   type ClawHubPackageCompatibility,
   type ClawHubPackageDetail,
   type ClawHubPackageClawPackSummary,
+  type ClawHubPackageSecurityResponse,
   type ClawHubPackageSecurityTrust,
   type ClawHubResolvedArtifact,
   type ClawHubPackageVersion,
@@ -360,8 +361,8 @@ function mapClawHubRequestError(
   return buildClawHubInstallFailure(formatErrorMessage(error));
 }
 
-const CLAWHUB_RISK_SCAN_STATUSES = new Set(["malicious", "suspicious"]);
 const CLAWHUB_RISK_MODERATION_STATES = new Set(["blocked", "quarantined", "revoked"]);
+const CLAWHUB_SAFE_MODERATION_STATES = new Set(["", "approved"]);
 const CLAWHUB_NON_RISK_REASONS = new Set([
   "pending",
   "pending_scan",
@@ -374,18 +375,25 @@ function normalizeClawHubTrustToken(value: string | null | undefined): string {
   return normalizeOptionalString(value)?.toLowerCase() ?? "";
 }
 
+function formatClawHubTrustTokenForWarning(label: string, token: string): string {
+  return token ? `${label} ${token}` : `${label} missing`;
+}
+
 function resolveClawHubRiskReasons(trust: ClawHubPackageSecurityTrust): string[] {
   const reasons: string[] = [];
   if (trust.blockedFromDownload) {
     reasons.push("blocked from download");
   }
   const scanStatus = normalizeClawHubTrustToken(trust.scanStatus);
-  if (CLAWHUB_RISK_SCAN_STATUSES.has(scanStatus)) {
-    reasons.push(`scan status ${scanStatus}`);
+  if (scanStatus !== "clean") {
+    reasons.push(formatClawHubTrustTokenForWarning("scan status", scanStatus));
   }
   const moderationState = normalizeClawHubTrustToken(trust.moderationState);
-  if (CLAWHUB_RISK_MODERATION_STATES.has(moderationState)) {
-    reasons.push(`moderation state ${moderationState}`);
+  if (
+    CLAWHUB_RISK_MODERATION_STATES.has(moderationState) ||
+    !CLAWHUB_SAFE_MODERATION_STATES.has(moderationState)
+  ) {
+    reasons.push(formatClawHubTrustTokenForWarning("moderation state", moderationState));
   }
   for (const reason of trust.reasons) {
     const normalized = normalizeClawHubTrustToken(reason);
@@ -415,6 +423,28 @@ function formatClawHubTrustWarning(params: {
   return `ClawHub trust warning for "${params.packageName}@${params.version}": ${details.join("; ")}.${riskSuffix}`;
 }
 
+function validateClawHubSecurityIdentity(params: {
+  security: ClawHubPackageSecurityResponse;
+  packageName: string;
+  version: string;
+}): ClawHubInstallFailure | null {
+  const responsePackageName = normalizeOptionalString(params.security.package?.name);
+  if (responsePackageName !== params.packageName) {
+    return buildClawHubInstallFailure(
+      `ClawHub release trust check for "${params.packageName}@${params.version}" returned package "${responsePackageName ?? "unknown"}".`,
+      CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_SECURITY_UNAVAILABLE,
+    );
+  }
+  const responseVersion = normalizeOptionalString(params.security.release?.version);
+  if (responseVersion !== params.version) {
+    return buildClawHubInstallFailure(
+      `ClawHub release trust check for "${params.packageName}@${params.version}" returned version "${responseVersion ?? "unknown"}".`,
+      CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_SECURITY_UNAVAILABLE,
+    );
+  }
+  return null;
+}
+
 async function ensureClawHubPackageTrustAcknowledged(params: {
   packageName: string;
   version: string;
@@ -434,6 +464,14 @@ async function ensureClawHubPackageTrustAcknowledged(params: {
       token: params.token,
       timeoutMs: params.timeoutMs,
     });
+    const identityFailure = validateClawHubSecurityIdentity({
+      security,
+      packageName: params.packageName,
+      version: params.version,
+    });
+    if (identityFailure) {
+      return identityFailure;
+    }
     trust = security.trust;
   } catch (error) {
     return buildClawHubInstallFailure(

@@ -298,24 +298,27 @@ describe("installPluginFromClawHub", () => {
     fetchClawHubPackageArtifactMock.mockImplementation((params) =>
       fetchClawHubPackageVersionMock(params),
     );
-    fetchClawHubPackageSecurityMock.mockResolvedValue({
-      package: {
-        name: "demo",
-        displayName: "Demo",
-        family: "code-plugin",
-      },
-      release: {
-        version: "2026.3.22",
-      },
-      trust: {
-        scanStatus: "clean",
-        moderationState: null,
-        blockedFromDownload: false,
-        reasons: [],
-        pending: false,
-        stale: false,
-      },
-    });
+    fetchClawHubPackageSecurityMock.mockImplementation(
+      (params: { name?: string; version?: string }) =>
+        Promise.resolve({
+          package: {
+            name: params.name ?? "demo",
+            displayName: "Demo",
+            family: "code-plugin",
+          },
+          release: {
+            version: params.version ?? "2026.3.22",
+          },
+          trust: {
+            scanStatus: "clean",
+            moderationState: null,
+            blockedFromDownload: false,
+            reasons: [],
+            pending: false,
+            stale: false,
+          },
+        }),
+    );
     downloadClawHubPackageArchiveMock.mockResolvedValue({
       archivePath: "/tmp/clawhub-demo/archive.zip",
       integrity: DEMO_ARCHIVE_INTEGRITY,
@@ -360,6 +363,14 @@ describe("installPluginFromClawHub", () => {
 
   it("requires acknowledgement before downloading risky ClawHub releases", async () => {
     fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
       trust: {
         scanStatus: "malicious",
         moderationState: "quarantined",
@@ -387,9 +398,111 @@ describe("installPluginFromClawHub", () => {
     expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
   });
 
+  it("requires acknowledgement before downloading non-clean ClawHub releases", async () => {
+    fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
+      trust: {
+        scanStatus: "not-run",
+        moderationState: null,
+        blockedFromDownload: false,
+        reasons: [],
+        pending: false,
+        stale: false,
+      },
+    });
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+    });
+
+    const failure = expectInstallFailure(result);
+    expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED);
+    expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
+    expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
+  });
+
+  it("requires acknowledgement before downloading releases with unknown moderation state", async () => {
+    fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
+      trust: {
+        scanStatus: "clean",
+        moderationState: "manual-review",
+        blockedFromDownload: false,
+        reasons: [],
+        pending: false,
+        stale: false,
+      },
+    });
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+    });
+
+    const failure = expectInstallFailure(result);
+    expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED);
+    expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
+    expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
+  });
+
+  it("stops when ClawHub security identity does not match the requested release", async () => {
+    fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.21",
+      },
+      trust: {
+        scanStatus: "clean",
+        moderationState: null,
+        blockedFromDownload: false,
+        reasons: [],
+        pending: false,
+        stale: false,
+      },
+    });
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+    });
+
+    const failure = expectInstallFailure(result);
+    expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_SECURITY_UNAVAILABLE);
+    expect(failure.error).toContain('returned version "2026.3.21"');
+    expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
+    expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
+  });
+
   it("continues after a risky ClawHub release is acknowledged", async () => {
     const onClawHubRisk = vi.fn(async () => true);
     fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
       trust: {
         scanStatus: "suspicious",
         moderationState: null,
@@ -421,6 +534,14 @@ describe("installPluginFromClawHub", () => {
     const onClawHubRisk = vi.fn(async () => false);
     const logger = createLoggerSpies();
     fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
       trust: {
         scanStatus: "clean",
         moderationState: null,

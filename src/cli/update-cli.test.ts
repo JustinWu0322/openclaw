@@ -2935,6 +2935,23 @@ describe("update-cli", () => {
     expect(lastNpmPluginUpdateCall()?.acknowledgeClawHubRisk).toBe(true);
   });
 
+  it("does not prompt for ClawHub risk during post-update plugin work when stdout is not interactive", async () => {
+    const tempDir = createCaseDir("openclaw-update");
+    mockPackageInstallStatus(tempDir);
+    setTty(true);
+    setStdoutTty(false);
+
+    await updateCommand({
+      channel: "beta",
+      yes: true,
+      restart: false,
+    });
+
+    expect(syncPluginCall()?.onClawHubRisk).toBeUndefined();
+    expect(npmPluginUpdateCall()?.onClawHubRisk).toBeUndefined();
+    expect(lastNpmPluginUpdateCall()?.onClawHubRisk).toBeUndefined();
+  });
+
   it("persists channel and runs post-update work after switching from package to git", async () => {
     const tempDir = createCaseDir("openclaw-update");
     const gitRoot = path.join(tempDir, "..", "openclaw");
