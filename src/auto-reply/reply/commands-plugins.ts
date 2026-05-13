@@ -15,7 +15,7 @@ import type { PluginInstallRecord } from "../../config/types.plugins.js";
 import { resolveArchiveKind } from "../../infra/archive.js";
 import { parseClawHubPluginSpec } from "../../infra/clawhub.js";
 import { formatErrorMessage } from "../../infra/errors.js";
-import { installPluginFromClawHub } from "../../plugins/clawhub.js";
+import { CLAWHUB_INSTALL_ERROR_CODE, installPluginFromClawHub } from "../../plugins/clawhub.js";
 import { installPluginFromGitSpec, parseGitPluginSpec } from "../../plugins/git-install.js";
 import { installPluginFromNpmSpec, installPluginFromPath } from "../../plugins/install.js";
 import { loadInstalledPluginIndexInstallRecords } from "../../plugins/installed-plugin-index-records.js";
@@ -279,6 +279,12 @@ async function installPluginFromPluginsCommand(params: {
       logger: createPluginInstallLogger(),
     });
     if (!result.ok) {
+      if (result.code === CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED) {
+        return {
+          ok: false,
+          error: `${result.error} The /plugins chat command cannot acknowledge ClawHub risk; run the local openclaw plugins install command with --acknowledge-clawhub-risk from a trusted shell after reviewing the warning.`,
+        };
+      }
       return { ok: false, error: result.error };
     }
     await persistPluginInstall({

@@ -613,6 +613,12 @@ must pass `--acknowledge-clawhub-risk` after reviewing that warning. The flag
 acknowledges ClawHub registry risk only; it does not bypass plugin
 `before_install` hook policy blocks or the built-in dangerous-code scanner.
 
+On Windows package-manager updates, `openclaw update` resumes post-core plugin
+sync in a child process with piped stdio so shells do not hang on inherited
+console handles. That resumed child is non-interactive for ClawHub risk prompts;
+pass `--acknowledge-clawhub-risk` on the original `openclaw update` invocation
+after reviewing the warning if continuing is intended.
+
 `--dangerously-force-unsafe-install` is a break-glass override for false
 positives from the built-in dangerous-code scanner. It allows plugin installs
 and plugin updates to continue past built-in `critical` findings, but it still
