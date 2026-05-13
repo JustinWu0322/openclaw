@@ -72,6 +72,7 @@ export type TelegramInboundBodyResult = {
   effectiveWasMentioned: boolean;
   canDetectMention: boolean;
   shouldBypassMention: boolean;
+  hasControlCommand: boolean;
   audioTranscribedMediaIndex?: number;
   stickerCacheHit: boolean;
   locationData?: NormalizedLocation;
@@ -344,7 +345,7 @@ export async function resolveTelegramInboundBody(params: {
       canDetectMention,
       wasMentioned,
       hasAnyMention,
-      implicitMentionKinds: isGroup && Boolean(requireMention) ? implicitMentionKinds : [],
+      implicitMentionKinds: isGroup ? implicitMentionKinds : [],
     },
     policy: {
       isGroup,
@@ -423,6 +424,7 @@ export async function resolveTelegramInboundBody(params: {
     effectiveWasMentioned,
     canDetectMention,
     shouldBypassMention: mentionDecision.shouldBypassMention,
+    hasControlCommand: hasControlCommandInMessage,
     ...(audioTranscribedMediaIndex !== undefined && audioTranscribedMediaIndex >= 0
       ? { audioTranscribedMediaIndex }
       : {}),

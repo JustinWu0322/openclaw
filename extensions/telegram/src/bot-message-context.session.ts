@@ -16,6 +16,7 @@ import type {
 import { resolveChannelContextVisibilityMode } from "openclaw/plugin-sdk/context-visibility-runtime";
 import {
   buildPendingHistoryContextFromMap,
+  recordPendingHistoryEntryIfEnabled,
   type HistoryEntry,
 } from "openclaw/plugin-sdk/reply-history";
 import type { ResolvedAgentRoute } from "openclaw/plugin-sdk/routing";
@@ -178,6 +179,7 @@ export async function buildTelegramInboundContextPayload(params: {
   topicConfig?: TelegramTopicConfig;
   stickerCacheHit: boolean;
   effectiveWasMentioned: boolean;
+  hasControlCommand: boolean;
   audioTranscribedMediaIndex?: number;
   commandAuthorized: boolean;
   locationData?: NormalizedLocation;
@@ -226,6 +228,7 @@ export async function buildTelegramInboundContextPayload(params: {
     topicConfig,
     stickerCacheHit,
     effectiveWasMentioned,
+    hasControlCommand,
     audioTranscribedMediaIndex,
     commandAuthorized,
     locationData,
@@ -414,6 +417,10 @@ export async function buildTelegramInboundContextPayload(params: {
     : `telegram:${chatId}`;
   const telegramTo = `telegram:${chatId}`;
   const locationContext = locationData ? toLocationContext(locationData) : undefined;
+  const inboundTurnKind =
+    isGroup && !effectiveWasMentioned && !hasControlCommand && options?.commandSource !== "native"
+      ? "room_event"
+      : "user_request";
   const ctxPayload = sessionRuntime.buildChannelTurnContext({
     channel: "telegram",
     accountId: route.accountId,
@@ -450,6 +457,7 @@ export async function buildTelegramInboundContextPayload(params: {
       messageThreadId: threadSpec.id,
     },
     message: {
+      inboundTurnKind,
       body: combinedBody,
       rawBody,
       bodyForAgent: bodyText,
@@ -528,6 +536,19 @@ export async function buildTelegramInboundContextPayload(params: {
       TopicName: isForum && topicName ? topicName : undefined,
     },
   } satisfies BuildChannelTurnContextParams);
+  if (inboundTurnKind === "room_event" && historyKey) {
+    recordPendingHistoryEntryIfEnabled({
+      historyMap: groupHistories,
+      historyKey,
+      limit: historyLimit,
+      entry: {
+        sender: buildSenderLabel(msg, senderId || chatId),
+        body: rawBody,
+        timestamp: msg.date ? msg.date * 1000 : undefined,
+        messageId: typeof msg.message_id === "number" ? String(msg.message_id) : undefined,
+      },
+    });
+  }
 
   const pinnedMainDmOwner = !isGroup
     ? sessionRuntime.resolvePinnedMainDmOwnerFromAllowlist({

@@ -477,6 +477,7 @@ export const dispatchTelegramMessage = async ({
   const accountBlockStreamingEnabled =
     resolveChannelStreamingBlockEnabled(telegramCfg) ??
     cfg.agents?.defaults?.blockStreamingDefault === "on";
+  const isRoomEvent = ctxPayload.InboundTurnKind === "room_event";
   const resolvedReasoningLevel = resolveTelegramReasoningLevel({
     cfg,
     sessionKey: ctxPayload.SessionKey,
@@ -485,7 +486,7 @@ export const dispatchTelegramMessage = async ({
   });
   const forceBlockStreamingForReasoning = resolvedReasoningLevel === "on";
   const streamReasoningDraft = resolvedReasoningLevel === "stream";
-  const streamDeliveryEnabled = streamMode !== "off";
+  const streamDeliveryEnabled = !isRoomEvent && streamMode !== "off";
   const rawReplyQuoteText =
     ctxPayload.ReplyToIsQuote && typeof ctxPayload.ReplyToQuoteText === "string"
       ? ctxPayload.ReplyToQuoteText
@@ -1156,7 +1157,7 @@ export const dispatchTelegramMessage = async ({
       }
     }
 
-    if (statusReactionController) {
+    if (statusReactionController && !isRoomEvent) {
       void statusReactionController.setThinking();
     }
 
@@ -1428,6 +1429,8 @@ export const dispatchTelegramMessage = async ({
                 replyOptions: {
                   skillFilter,
                   disableBlockStreaming,
+                  sourceReplyDeliveryMode: isRoomEvent ? "message_tool_only" : undefined,
+                  suppressTyping: isRoomEvent,
                   onPartialReply:
                     answerLane.stream || reasoningLane.stream
                       ? (payload) =>
@@ -1467,7 +1470,8 @@ export const dispatchTelegramMessage = async ({
                     : undefined,
                   suppressDefaultToolProgressMessages:
                     !streamDeliveryEnabled || Boolean(answerLane.stream),
-                  allowProgressCallbacksWhenSourceDeliverySuppressed: Boolean(answerLane.stream),
+                  allowProgressCallbacksWhenSourceDeliverySuppressed:
+                    !isRoomEvent && Boolean(answerLane.stream),
                   onToolStart: async (payload) => {
                     const toolName = payload.name?.trim();
                     const progressPromise = pushStreamToolProgress(
@@ -1715,7 +1719,13 @@ export const dispatchTelegramMessage = async ({
     );
   }
 
+  const shouldClearGroupHistory =
+    !isRoomEvent || deliverySummary.delivered || sentFallback || queuedFinal;
+
   if (!hasFinalResponse) {
+    if (!shouldClearGroupHistory) {
+      return;
+    }
     clearGroupHistory();
     return;
   }
@@ -1788,5 +1798,7 @@ export const dispatchTelegramMessage = async ({
       },
     });
   }
-  clearGroupHistory();
+  if (shouldClearGroupHistory) {
+    clearGroupHistory();
+  }
 };
