@@ -133,6 +133,24 @@ function formatClawHubInstallFailure(params: {
   return `Failed to ${params.phase} ${params.pluginId}: ${params.error} (ClawHub ${params.spec}).`;
 }
 
+function isClawHubRiskAcknowledgementRequired(result: { ok: false; code?: string }): boolean {
+  return result.code === CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED;
+}
+
+function buildClawHubRiskAcknowledgementSkippedOutcome(params: {
+  pluginId: string;
+  phase: "check" | "update";
+  error: string;
+  currentVersion?: string;
+}): PluginUpdateOutcome {
+  return {
+    pluginId: params.pluginId,
+    status: "skipped",
+    ...(params.currentVersion ? { currentVersion: params.currentVersion } : {}),
+    message: `Skipped ${params.pluginId} ClawHub ${params.phase}: ${params.error} Existing installed plugin left unchanged.`,
+  };
+}
+
 function formatGitInstallFailure(params: {
   pluginId: string;
   spec: string;
@@ -1248,6 +1266,17 @@ export async function updateNpmInstalledPlugins(params: {
         });
       }
       if (!probe.ok) {
+        if (record.source === "clawhub" && isClawHubRiskAcknowledgementRequired(probe)) {
+          outcomes.push(
+            buildClawHubRiskAcknowledgementSkippedOutcome({
+              pluginId,
+              phase: "check",
+              error: probe.error,
+              ...(currentVersion ? { currentVersion } : {}),
+            }),
+          );
+          continue;
+        }
         recordFailure(
           pluginId,
           record.source === "npm"
@@ -1446,6 +1475,17 @@ export async function updateNpmInstalledPlugins(params: {
       });
     }
     if (!result.ok) {
+      if (record.source === "clawhub" && isClawHubRiskAcknowledgementRequired(result)) {
+        outcomes.push(
+          buildClawHubRiskAcknowledgementSkippedOutcome({
+            pluginId,
+            phase: "update",
+            error: result.error,
+            ...(currentVersion ? { currentVersion } : {}),
+          }),
+        );
+        continue;
+      }
       recordFailure(
         pluginId,
         record.source === "npm"

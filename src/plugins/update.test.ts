@@ -60,6 +60,7 @@ vi.mock("./clawhub.js", () => ({
     PACKAGE_NOT_FOUND: "package_not_found",
     VERSION_NOT_FOUND: "version_not_found",
     ARCHIVE_INTEGRITY_MISMATCH: "archive_integrity_mismatch",
+    CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED: "clawhub_risk_acknowledgement_required",
   },
   installPluginFromClawHub: (...args: unknown[]) => installPluginFromClawHubMock(...args),
 }));
@@ -1725,6 +1726,59 @@ describe("updateNpmInstalledPlugins", () => {
         pluginId: "demo",
         status: "skipped",
         message,
+      },
+    ]);
+  });
+
+  it("keeps an existing ClawHub plugin enabled when a risky update is not acknowledged", async () => {
+    installPluginFromClawHubMock.mockResolvedValue({
+      ok: false,
+      code: "clawhub_risk_acknowledgement_required",
+      error:
+        'ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue.',
+    });
+    const installPath = createInstalledPackageDir({
+      name: "demo",
+      version: "1.2.3",
+    });
+    const config = createClawHubInstallConfig({
+      pluginId: "demo",
+      installPath,
+      clawhubUrl: "https://clawhub.ai",
+      clawhubPackage: "demo",
+      clawhubFamily: "code-plugin",
+      clawhubChannel: "official",
+    });
+    config.plugins = {
+      ...config.plugins,
+      entries: {
+        demo: {
+          enabled: true,
+          config: { preserved: true },
+        },
+      },
+    };
+
+    const result = await updateNpmInstalledPlugins({
+      config,
+      pluginIds: ["demo"],
+      disableOnFailure: true,
+    });
+
+    expect(clawHubInstallCall()?.spec).toBe("clawhub:demo");
+    expect(result.changed).toBe(false);
+    expect(result.config).toBe(config);
+    expect(result.config.plugins?.entries?.demo).toEqual({
+      enabled: true,
+      config: { preserved: true },
+    });
+    expect(result.outcomes).toEqual([
+      {
+        pluginId: "demo",
+        status: "skipped",
+        currentVersion: "1.2.3",
+        message:
+          'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue. Existing installed plugin left unchanged.',
       },
     ]);
   });
