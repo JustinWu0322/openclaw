@@ -103,6 +103,28 @@ describe("runPostCorePluginConvergence", () => {
     });
   });
 
+  it("forwards ClawHub risk acknowledgement options to repair", async () => {
+    const cfg = {
+      plugins: { entries: { matrix: { enabled: true } } },
+    } as unknown as OpenClawConfig;
+    const onClawHubRisk = vi.fn(async () => true);
+    await runPostCorePluginConvergence({
+      cfg,
+      env: {},
+      acknowledgeClawHubRisk: true,
+      onClawHubRisk,
+    });
+    expect(mocks.repairMissingConfiguredPluginInstalls).toHaveBeenCalledTimes(1);
+    expect(mocks.repairMissingConfiguredPluginInstalls).toHaveBeenCalledWith({
+      cfg,
+      env: {
+        OPENCLAW_UPDATE_POST_CORE_CONVERGENCE: "1",
+      },
+      acknowledgeClawHubRisk: true,
+      onClawHubRisk,
+    });
+  });
+
   it("flags errored=true and surfaces actionable guidance when repair warns", async () => {
     mocks.repairMissingConfiguredPluginInstalls.mockResolvedValue({
       changes: [],

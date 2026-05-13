@@ -186,6 +186,64 @@ describe("handleCommands /plugins install", () => {
     });
   });
 
+  it("includes non-blocking ClawHub warnings in successful chat install replies", async () => {
+    const warning =
+      'ClawHub trust warning for "@openclaw/clawhub-demo@1.2.3": scan=pending; reasons=pending.';
+    installPluginFromClawHubMock.mockImplementation(async (params: unknown) => {
+      if (!params || typeof params !== "object" || !("logger" in params)) {
+        throw new Error("expected ClawHub install logger");
+      }
+      const logger = params.logger;
+      if (
+        !logger ||
+        typeof logger !== "object" ||
+        !("warn" in logger) ||
+        typeof logger.warn !== "function"
+      ) {
+        throw new Error("expected ClawHub install warn logger");
+      }
+      logger.warn(warning);
+      return {
+        ok: true,
+        pluginId: "clawhub-demo",
+        targetDir: "/tmp/clawhub-demo",
+        version: "1.2.3",
+        extensions: ["index.js"],
+        packageName: "@openclaw/clawhub-demo",
+        clawhub: {
+          source: "clawhub",
+          clawhubUrl: "https://clawhub.ai",
+          clawhubPackage: "@openclaw/clawhub-demo",
+          clawhubFamily: "code-plugin",
+          clawhubChannel: "official",
+          version: "1.2.3",
+          integrity: "sha512-demo",
+          resolvedAt: "2026-03-22T12:00:00.000Z",
+        },
+      };
+    });
+    persistPluginInstallMock.mockResolvedValue({});
+
+    await withTempHome("openclaw-command-plugins-home-", async () => {
+      const workspaceDir = await workspaceHarness.createWorkspace();
+      const params = buildPluginsParams(
+        "/plugins install clawhub:@openclaw/clawhub-demo@1.2.3",
+        workspaceDir,
+      );
+      const result = await handlePluginsCommand(params, true);
+      if (result === null) {
+        throw new Error("expected plugin install result");
+      }
+      expect(result.reply?.text).toContain('Installed plugin "clawhub-demo"');
+      expect(result.reply?.text).toContain(warning);
+      expectPersistedInstall("clawhub-demo", {
+        source: "clawhub",
+        spec: "clawhub:@openclaw/clawhub-demo@1.2.3",
+        installPath: "/tmp/clawhub-demo",
+      });
+    });
+  });
+
   it("reports risky ClawHub install failures without persisting install metadata", async () => {
     installPluginFromClawHubMock.mockResolvedValue({
       ok: false,

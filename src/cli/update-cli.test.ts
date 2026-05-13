@@ -283,6 +283,11 @@ const { runCommandWithTimeout } = await import("../process/exec.js");
 const { runDaemonRestart, runDaemonInstall } = await import("./daemon-cli.js");
 const { doctorCommand } = await import("../commands/doctor.js");
 const { defaultRuntime } = await import("../runtime.js");
+const postCorePluginConvergence = await import("./update-cli/post-core-plugin-convergence.js");
+const runPostCorePluginConvergenceSpy = vi.spyOn(
+  postCorePluginConvergence,
+  "runPostCorePluginConvergence",
+);
 const { registerUpdateCli, updateCommand, updateStatusCommand, updateWizardCommand } =
   await import("./update-cli.js");
 const updateCliShared = await import("./update-cli/shared.js");
@@ -2979,6 +2984,9 @@ describe("update-cli", () => {
     expect(syncPluginCall()?.acknowledgeClawHubRisk).toBe(true);
     expect(npmPluginUpdateCall()?.acknowledgeClawHubRisk).toBe(true);
     expect(lastNpmPluginUpdateCall()?.acknowledgeClawHubRisk).toBe(true);
+    expect(runPostCorePluginConvergenceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ acknowledgeClawHubRisk: true }),
+    );
   });
 
   it("does not prompt for ClawHub risk during post-update plugin work when stdout is not interactive", async () => {
