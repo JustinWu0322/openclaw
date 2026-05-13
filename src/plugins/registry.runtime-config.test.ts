@@ -28,12 +28,13 @@ describe("plugin registry runtime config scope", () => {
       previousHash: null,
       nextHash: "next",
     } as unknown as Awaited<ReturnType<PluginRuntime["config"]["replaceConfigFile"]>>;
+    const mutateConfigFile: PluginRuntime["config"]["mutateConfigFile"] = async () => ({
+      ...replaceResult,
+      result: undefined,
+    });
     const configRuntime = {
       current: vi.fn(() => config),
-      mutateConfigFile: async <T = void>() => ({
-        ...replaceResult,
-        result: undefined as T | undefined,
-      }),
+      mutateConfigFile,
       replaceConfigFile: async () => replaceResult,
       loadConfig: vi.fn(() => {
         loadScope = getPluginRuntimeGatewayRequestScope();
