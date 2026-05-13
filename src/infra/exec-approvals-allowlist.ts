@@ -6,6 +6,7 @@ import {
 } from "../shared/string-coerce.js";
 import { isInterpreterLikeAllowlistPattern } from "./command-analysis/inline-eval.js";
 import { detectInlineEvalArgv } from "./command-analysis/risks.js";
+import type { CommandAuthorizationPlan } from "./command-authorization/index.js";
 import {
   isDispatchWrapperExecutable,
   unwrapDispatchWrappersForResolution,
@@ -1220,6 +1221,71 @@ export function resolveAllowAlwaysPatternEntries(params: {
     });
   }
   return patterns;
+}
+
+export function resolveAllowAlwaysPatternEntriesFromPlan(params: {
+  plan: CommandAuthorizationPlan;
+  approvedSegments?: ExecCommandSegment[];
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  platform?: string | null;
+  strictInlineEval?: boolean;
+}): AllowAlwaysPattern[] {
+  if (params.plan.kind === "unanalyzable") {
+    return [];
+  }
+
+  const approvedSegmentCount =
+    params.approvedSegments !== undefined && params.approvedSegments.length > 0
+      ? countPlannerUnitsForApprovedSegments({
+          approvedSegments: params.approvedSegments,
+          cwd: params.cwd,
+          env: params.env,
+          platform: params.platform,
+        })
+      : params.plan.units.length;
+  const segments = params.plan.units
+    .slice(0, approvedSegmentCount)
+    .filter((unit) => unit.allowAlwaysEligible && unit.blockReasons.length === 0)
+    .map(
+      (unit): ExecCommandSegment => ({
+        raw: unit.raw,
+        argv: unit.argv,
+        resolution: resolveCommandResolutionFromArgv(unit.argv, params.cwd, params.env),
+      }),
+    );
+
+  return resolveAllowAlwaysPatternEntries({
+    segments,
+    cwd: params.cwd,
+    env: params.env,
+    platform: params.platform,
+    strictInlineEval: params.strictInlineEval,
+  });
+}
+
+function countPlannerUnitsForApprovedSegments(params: {
+  approvedSegments: ExecCommandSegment[];
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  platform?: string | null;
+}): number {
+  let count = 0;
+  for (const segment of params.approvedSegments) {
+    const inlineCommand = extractBindableShellWrapperInlineCommand(segment.argv);
+    if (inlineCommand) {
+      const nested = analyzeShellCommand({
+        command: inlineCommand,
+        cwd: params.cwd,
+        env: params.env,
+        platform: params.platform,
+      });
+      count += nested.ok && nested.segments.length > 0 ? nested.segments.length : 1;
+      continue;
+    }
+    count += 1;
+  }
+  return count;
 }
 
 export function resolveAllowAlwaysPatterns(params: {

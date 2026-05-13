@@ -493,9 +493,11 @@ export async function processGatewayAllowlist(
       } else if (decision === "allow-always") {
         approvedByAsk = true;
         if (!requiresInlineEvalApproval) {
-          const patterns = persistAllowAlwaysPatterns({
+          const patterns = await persistAllowAlwaysPatterns({
             approvals: approvals.file,
             agentId: params.agentId,
+            analysisOk,
+            commandText: params.command,
             segments: allowlistEval.segments,
             cwd: params.workdir,
             env: params.env,

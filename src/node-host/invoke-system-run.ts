@@ -647,9 +647,11 @@ async function executeSystemRunPhase(
 
   if (phase.policy.approvalDecision === "allow-always" && phase.inlineEvalHit === null) {
     const patterns = phase.policy.analysisOk
-      ? persistAllowAlwaysPatterns({
+      ? await persistAllowAlwaysPatterns({
           approvals: phase.approvals.file,
           agentId: phase.agentId,
+          analysisOk: phase.policy.analysisOk,
+          commandText: phase.commandText,
           segments: phase.segments,
           cwd: phase.cwd,
           env: phase.env,

@@ -9,7 +9,11 @@ import {
   readStringValue,
 } from "../shared/string-coerce.js";
 import type { CommandExplanationSummary } from "./command-analysis/explain.js";
-import { resolveAllowAlwaysPatternEntries } from "./exec-approvals-allowlist.js";
+import { planCommandForAuthorization } from "./command-authorization/index.js";
+import {
+  resolveAllowAlwaysPatternEntries,
+  resolveAllowAlwaysPatternEntriesFromPlan,
+} from "./exec-approvals-allowlist.js";
 import type { ExecCommandSegment } from "./exec-approvals-analysis.js";
 import type { ExecAllowlistEntry } from "./exec-approvals.types.js";
 import { assertNoSymlinkParentsSync } from "./fs-safe-advanced.js";
@@ -1193,22 +1197,43 @@ export function addDurableCommandApproval(
   });
 }
 
-export function persistAllowAlwaysPatterns(params: {
+export async function persistAllowAlwaysPatterns(params: {
   approvals: ExecApprovalsFile;
   agentId: string | undefined;
+  analysisOk?: boolean;
+  commandText?: string;
   segments: ExecCommandSegment[];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   platform?: string | null;
   strictInlineEval?: boolean;
-}): ReturnType<typeof resolveAllowAlwaysPatternEntries> {
-  const patterns = resolveAllowAlwaysPatternEntries({
-    segments: params.segments,
-    cwd: params.cwd,
-    env: params.env,
-    platform: params.platform,
-    strictInlineEval: params.strictInlineEval,
-  });
+}): Promise<ReturnType<typeof resolveAllowAlwaysPatternEntries>> {
+  const commandText = params.commandText?.trim();
+  const usePlanner =
+    params.analysisOk !== false && Boolean(commandText) && params.platform !== "win32";
+  const patterns = usePlanner
+    ? resolveAllowAlwaysPatternEntriesFromPlan({
+        plan: await planCommandForAuthorization(
+          { dialect: "posix-shell", command: commandText ?? "" },
+          {
+            cwd: params.cwd,
+            env: params.env,
+            platform: params.platform,
+          },
+        ),
+        approvedSegments: params.segments.length > 0 ? params.segments : undefined,
+        cwd: params.cwd,
+        env: params.env,
+        platform: params.platform,
+        strictInlineEval: params.strictInlineEval,
+      })
+    : resolveAllowAlwaysPatternEntries({
+        segments: params.segments,
+        cwd: params.cwd,
+        env: params.env,
+        platform: params.platform,
+        strictInlineEval: params.strictInlineEval,
+      });
   for (const pattern of patterns) {
     if (!pattern.pattern) {
       continue;

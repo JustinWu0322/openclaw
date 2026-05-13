@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { planCommandForAuthorization } from "./plan.js";
 
 describe("command authorization planner corpus", () => {
-  it("marks tokenized argv commands as reusable trust candidates", () => {
-    const plan = planCommandForAuthorization({
+  it("marks tokenized argv commands as reusable trust candidates", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "argv",
       argv: ["git", "status", "--short"],
     });
@@ -27,8 +27,8 @@ describe("command authorization planner corpus", () => {
     ]);
   });
 
-  it("marks simple POSIX commands as reusable trust candidates", () => {
-    const plan = planCommandForAuthorization({
+  it("marks simple POSIX commands as reusable trust candidates", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command: "ls /tmp",
     });
@@ -50,8 +50,8 @@ describe("command authorization planner corpus", () => {
     );
   });
 
-  it("preserves simple POSIX pipelines as reusable command trees", () => {
-    const plan = planCommandForAuthorization({
+  it("preserves simple POSIX pipelines as reusable command trees", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command: "ls /tmp | grep log",
     });
@@ -94,8 +94,8 @@ describe("command authorization planner corpus", () => {
       operators: [";"],
       relationships: ["simple", "sequence"],
     },
-  ])("preserves POSIX $name tree shape", ({ command, operators, relationships }) => {
-    const plan = planCommandForAuthorization({
+  ])("preserves POSIX $name tree shape", async ({ command, operators, relationships }) => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command,
     });
@@ -117,8 +117,69 @@ describe("command authorization planner corpus", () => {
     expect(plan.units.every((unit) => unit.allowAlwaysEligible)).toBe(true);
   });
 
-  it("makes interpreter inline eval prompt-only instead of reusable trust", () => {
-    const plan = planCommandForAuthorization({
+  it("plans POSIX shell wrapper payloads as reusable trust candidates", async () => {
+    const plan = await planCommandForAuthorization({
+      dialect: "posix-shell",
+      command: 'sh -c "echo wrapped"',
+    });
+
+    expect(plan.kind).toBe("analyzable");
+    if (plan.kind !== "analyzable") {
+      throw new Error(`expected analyzable plan, got ${plan.kind}`);
+    }
+    expect(plan.tree).toEqual({ kind: "unit", unitId: "unit-0" });
+    expect(plan.units).toEqual([
+      expect.objectContaining({
+        id: "unit-0",
+        raw: "echo wrapped",
+        argv: ["echo", "wrapped"],
+        relationship: "wrapper-inline",
+        allowlistEligible: true,
+        allowAlwaysEligible: true,
+        promptOnlyReasons: [],
+        blockReasons: [],
+      }),
+    ]);
+  });
+
+  it("keeps surrounding POSIX chain commands when planning shell wrapper payloads", async () => {
+    const plan = await planCommandForAuthorization({
+      dialect: "posix-shell",
+      command: "git status && sh -c 'npm test'",
+    });
+
+    expect(plan.kind).toBe("analyzable");
+    if (plan.kind !== "analyzable") {
+      throw new Error(`expected analyzable plan, got ${plan.kind}`);
+    }
+    expect(plan.tree).toEqual({
+      kind: "chain",
+      operators: ["&&"],
+      children: [
+        { kind: "unit", unitId: "unit-0" },
+        { kind: "unit", unitId: "unit-1" },
+      ],
+    });
+    expect(plan.units).toEqual([
+      expect.objectContaining({
+        id: "unit-0",
+        raw: "git status",
+        argv: ["git", "status"],
+        relationship: "simple",
+        allowAlwaysEligible: true,
+      }),
+      expect.objectContaining({
+        id: "unit-1",
+        raw: "npm test",
+        argv: ["npm", "test"],
+        relationship: "and-conditional",
+        allowAlwaysEligible: true,
+      }),
+    ]);
+  });
+
+  it("makes interpreter inline eval prompt-only instead of reusable trust", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command: "python -c 'print(\"hi\")'",
     });
@@ -138,8 +199,22 @@ describe("command authorization planner corpus", () => {
     ]);
   });
 
-  it("makes command substitution prompt-only and flags dynamic executables", () => {
-    const plan = planCommandForAuthorization({
+  it("makes shell line continuation prompt-only instead of reusable trust", async () => {
+    const plan = await planCommandForAuthorization({
+      dialect: "posix-shell",
+      command: "pnpm test \\\n --filter foo",
+    });
+
+    expect(plan.kind).toBe("prompt-only");
+    if (plan.kind !== "prompt-only") {
+      throw new Error(`expected prompt-only plan, got ${plan.kind}`);
+    }
+    expect(plan.promptOnlyReasons).toContain("unsupported-shell-syntax");
+    expect(plan.units.every((unit) => !unit.allowAlwaysEligible)).toBe(true);
+  });
+
+  it("makes command substitution prompt-only and flags dynamic executables", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command: "$(whoami) --help",
     });
@@ -159,8 +234,8 @@ describe("command authorization planner corpus", () => {
     );
   });
 
-  it("marks malformed shell as unanalyzable", () => {
-    const plan = planCommandForAuthorization({
+  it("marks malformed shell as unanalyzable", async () => {
+    const plan = await planCommandForAuthorization({
       dialect: "posix-shell",
       command: "echo 'unterminated",
     });
@@ -184,8 +259,8 @@ describe("command authorization planner corpus", () => {
       command: "cmd /c dir",
       reason: "unsupported-cmd-wrapper",
     },
-  ])("keeps $dialect commands prompt-only", ({ dialect, command, reason }) => {
-    const plan = planCommandForAuthorization({ dialect, command });
+  ])("keeps $dialect commands prompt-only", async ({ dialect, command, reason }) => {
+    const plan = await planCommandForAuthorization({ dialect, command });
 
     expect(plan.kind).toBe("prompt-only");
     if (plan.kind !== "prompt-only") {
