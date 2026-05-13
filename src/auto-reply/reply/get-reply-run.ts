@@ -421,6 +421,7 @@ export async function runPreparedReply(
     ctx,
     isHeartbeat,
   });
+  const inboundTurnKind = promptSessionCtx.InboundTurnKind;
   const silentReplyConversationType = resolvePromptSilentReplyConversationType({
     ctx: promptSessionCtx,
     inboundSessionKey: ctx.SessionKey,
@@ -650,6 +651,7 @@ export async function runPreparedReply(
     startupContextPrelude,
     softResetTail,
     isHeartbeat,
+    turnKind: inboundTurnKind,
   });
   const effectiveBaseBody = promptEnvelopeBase.effectiveBaseBody;
   let prefixedBodyBase = await applySessionHints({
@@ -721,6 +723,7 @@ export async function runPreparedReply(
       startupContextPrelude,
       softResetTail,
       isHeartbeat,
+      turnKind: inboundTurnKind,
       threadContextNote,
       systemEventBlocks: drainedSystemEventBlocks,
     });
@@ -751,10 +754,7 @@ export async function runPreparedReply(
   const skillsSnapshot = skillResult.skillsSnapshot;
   let { prefixedCommandBody, queuedBody, transcriptCommandBody, currentTurnContext } =
     await traceRunPhase("reply.build_prompt_bodies", () => rebuildPromptBodies());
-  const isRoomEvent = sessionCtx.InboundTurnKind === "room_event";
-  if (isRoomEvent) {
-    transcriptCommandBody = "";
-  }
+  const isRoomEvent = inboundTurnKind === "room_event";
   if (!resolvedThinkLevel) {
     resolvedThinkLevel = await modelState.resolveDefaultThinkingLevel();
   }
@@ -954,9 +954,6 @@ export async function runPreparedReply(
         preparedSessionState = resolvePreparedSessionState();
         ({ prefixedCommandBody, queuedBody, transcriptCommandBody, currentTurnContext } =
           await traceRunPhase("reply.build_prompt_bodies", () => rebuildPromptBodies()));
-        if (isRoomEvent) {
-          transcriptCommandBody = "";
-        }
       },
       resolveBusyState: resolveQueueBusyState,
     });
@@ -974,7 +971,7 @@ export async function runPreparedReply(
   const followupRun = {
     prompt: queuedBody,
     transcriptPrompt: transcriptCommandBody,
-    currentTurnKind: sessionCtx.InboundTurnKind,
+    currentTurnKind: inboundTurnKind,
     currentTurnContext,
     messageId: sessionCtx.MessageSidFull ?? sessionCtx.MessageSid,
     summaryLine: baseBodyTrimmedRaw,
