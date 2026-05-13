@@ -667,6 +667,71 @@ describe("installPluginFromClawHub", () => {
     expect(onClawHubRisk).not.toHaveBeenCalled();
   });
 
+  it("warns for pending ClawHub scans without requiring acknowledgement", async () => {
+    const onClawHubRisk = vi.fn(async () => false);
+    const logger = createLoggerSpies();
+    fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
+      trust: {
+        scanStatus: "pending",
+        moderationState: null,
+        blockedFromDownload: false,
+        reasons: ["scan:pending"],
+        pending: true,
+        stale: false,
+      },
+    });
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+      logger,
+      onClawHubRisk,
+    });
+
+    expectSuccessfulClawHubInstall(result);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("scan=pending"));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("pending=true"));
+    expect(onClawHubRisk).not.toHaveBeenCalled();
+  });
+
+  it("requires acknowledgement when pending reason codes appear without pending or stale trust", async () => {
+    fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+      },
+      release: {
+        version: "2026.3.22",
+      },
+      trust: {
+        scanStatus: "pending",
+        moderationState: null,
+        blockedFromDownload: false,
+        reasons: ["scan:pending"],
+        pending: false,
+        stale: false,
+      },
+    });
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+    });
+
+    const failure = expectInstallFailure(result);
+    expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED);
+    expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
+  });
+
   it("stops when the ClawHub security response is unavailable", async () => {
     fetchClawHubPackageSecurityMock.mockRejectedValueOnce(
       new ClawHubRequestError({

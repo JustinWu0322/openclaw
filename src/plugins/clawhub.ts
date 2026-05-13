@@ -365,11 +365,14 @@ function mapClawHubRequestError(
 
 const CLAWHUB_RISK_MODERATION_STATES = new Set(["blocked", "quarantined", "revoked"]);
 const CLAWHUB_SAFE_MODERATION_STATES = new Set(["", "approved"]);
+const CLAWHUB_NON_RISK_SCAN_STATUSES = new Set(["pending", "scan_pending", "stale", "stale_scan"]);
 const CLAWHUB_NON_RISK_REASONS = new Set([
   "pending",
   "pending_scan",
+  "scan:pending",
   "scan_pending",
   "stale",
+  "scan:stale",
   "stale_scan",
 ]);
 
@@ -381,13 +384,25 @@ function formatClawHubTrustTokenForWarning(label: string, token: string): string
   return token ? `${label} ${token}` : `${label} missing`;
 }
 
+function isPendingOrStaleTrustWarning(trust: ClawHubPackageSecurityTrust): boolean {
+  return trust.pending || trust.stale;
+}
+
+function isNonRiskScanStatus(trust: ClawHubPackageSecurityTrust, scanStatus: string): boolean {
+  return isPendingOrStaleTrustWarning(trust) && CLAWHUB_NON_RISK_SCAN_STATUSES.has(scanStatus);
+}
+
+function isNonRiskReason(trust: ClawHubPackageSecurityTrust, reason: string): boolean {
+  return isPendingOrStaleTrustWarning(trust) && CLAWHUB_NON_RISK_REASONS.has(reason);
+}
+
 function resolveClawHubRiskReasons(trust: ClawHubPackageSecurityTrust): string[] {
   const reasons: string[] = [];
   if (trust.blockedFromDownload) {
     reasons.push("blocked from download");
   }
   const scanStatus = normalizeClawHubTrustToken(trust.scanStatus);
-  if (scanStatus !== "clean") {
+  if (scanStatus !== "clean" && !isNonRiskScanStatus(trust, scanStatus)) {
     reasons.push(formatClawHubTrustTokenForWarning("scan status", scanStatus));
   }
   const moderationState = normalizeClawHubTrustToken(trust.moderationState);
@@ -399,7 +414,7 @@ function resolveClawHubRiskReasons(trust: ClawHubPackageSecurityTrust): string[]
   }
   for (const reason of trust.reasons) {
     const normalized = normalizeClawHubTrustToken(reason);
-    if (normalized && !CLAWHUB_NON_RISK_REASONS.has(normalized)) {
+    if (normalized && !isNonRiskReason(trust, normalized)) {
       reasons.push(reason);
     }
   }
