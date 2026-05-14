@@ -402,6 +402,10 @@ export async function runPreparedReply(
     abortedLastRun,
   } = params;
   const isHeartbeat = opts?.isHeartbeat === true;
+  const forceSenderIsOwnerFalseForSystemEventRun =
+    isHeartbeat ||
+    isSystemEventProvider(ctx.Provider) ||
+    isSystemEventProvider(sessionCtx.Provider);
   const traceAttributes = {
     provider,
     hasSessionKey: Boolean(sessionKey),
@@ -997,9 +1001,10 @@ export async function runPreparedReply(
       senderName: normalizeOptionalString(sessionCtx.SenderName),
       senderUsername: normalizeOptionalString(sessionCtx.SenderUsername),
       senderE164: normalizeOptionalString(sessionCtx.SenderE164),
-      senderIsOwner: command.senderIsOwner,
+      senderIsOwner: forceSenderIsOwnerFalseForSystemEventRun ? false : command.senderIsOwner,
       traceAuthorized:
-        command.senderIsOwner || (ctx.GatewayClientScopes ?? []).includes("operator.admin"),
+        (forceSenderIsOwnerFalseForSystemEventRun ? false : command.senderIsOwner) ||
+        (ctx.GatewayClientScopes ?? []).includes("operator.admin"),
       sessionFile: preparedSessionState.sessionFile,
       workspaceDir,
       config: cfg,

@@ -1630,7 +1630,7 @@ describe("runPreparedReply media-only handling", () => {
     expect(call.followupRun.run.extraSystemPrompt ?? "").not.toContain("Runtime System Events");
   });
 
-  it("does not downgrade sender ownership based on drained system event text", async () => {
+  it("does not downgrade direct sender ownership based on drained system event text", async () => {
     vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(
       "System (untrusted): [t] External webhook payload.",
     );
@@ -1640,6 +1640,34 @@ describe("runPreparedReply media-only handling", () => {
 
     const call = requireRunReplyAgentCall();
     expect(call?.followupRun.run.senderIsOwner).toBe(true);
+  });
+
+  it("downgrades sender ownership for heartbeat-originated system event runs", async () => {
+    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(
+      "System: [t] External webhook payload.",
+    );
+    const params = ownerParams();
+
+    await runPreparedReply({
+      ...params,
+      opts: { ...params.opts, isHeartbeat: true },
+    });
+
+    const call = requireRunReplyAgentCall();
+    expect(call?.followupRun.run.senderIsOwner).toBe(false);
+  });
+
+  it("downgrades sender ownership for system-event providers", async () => {
+    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce("System: [t] Cron fired.");
+    const params = ownerParams();
+
+    await runPreparedReply({
+      ...params,
+      ctx: { ...params.ctx, Provider: "cron-event" },
+    });
+
+    const call = requireRunReplyAgentCall();
+    expect(call?.followupRun.run.senderIsOwner).toBe(false);
   });
 
   it("keeps sender ownership when drained system events are present", async () => {

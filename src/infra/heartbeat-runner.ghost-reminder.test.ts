@@ -469,7 +469,7 @@ describe("Ghost reminder bug (issue #13317)", () => {
     expect(sendTelegram).not.toHaveBeenCalled();
   });
 
-  it("does not classify base-session hook:wake exec completions as exec-event prompts when isolated sessions are enabled", async () => {
+  it("keeps isolated base-session hook:wake exec completions on heartbeat prompts", async () => {
     const { result, sendTelegram, calledCtx } = await runHeartbeatCase({
       tmpPrefix: "openclaw-hook-exec-isolated-",
       replyText: "Handled internally",
@@ -484,41 +484,41 @@ describe("Ghost reminder bug (issue #13317)", () => {
     expect(result.status).toBe("ran");
     expect(calledCtx?.Provider).toBe("heartbeat");
     expect(calledCtx?.SessionKey).toContain(":heartbeat");
-    expect(calledCtx?.ForceSenderIsOwnerFalse).toBe(false);
+    expect(calledCtx?.ForceSenderIsOwnerFalse).toBe(true);
     expect(sendTelegram).not.toHaveBeenCalled();
   });
 
-  it("does not force owner downgrade for hook:wake system events", async () => {
+  it("forces owner downgrade for hook:wake system event runs", async () => {
     await expectQueuedEventOwnership({
       tmpPrefix: "openclaw-hook-event-",
       reason: "hook:wake",
-      forceSenderIsOwnerFalse: false,
+      forceSenderIsOwnerFalse: true,
     });
   });
 
-  it("does not force owner downgrade for interval events", async () => {
+  it("forces owner downgrade for interval system event runs", async () => {
     await expectQueuedEventOwnership({
       tmpPrefix: "openclaw-interval-event-",
       reason: "interval",
-      forceSenderIsOwnerFalse: false,
+      forceSenderIsOwnerFalse: true,
     });
   });
 
-  it("does not force owner downgrade for hook:wake events with isolated sessions", async () => {
+  it("forces owner downgrade for hook:wake events with isolated sessions", async () => {
     await expectQueuedEventOwnership({
       tmpPrefix: "openclaw-hook-event-isolated-",
       reason: "hook:wake",
       isolatedSession: true,
-      forceSenderIsOwnerFalse: false,
+      forceSenderIsOwnerFalse: true,
     });
   });
 
-  it("does not force owner downgrade for isolated interval runs with only base-session events", async () => {
+  it("forces owner downgrade for isolated interval runs with only base-session events", async () => {
     await expectQueuedEventOwnership({
       tmpPrefix: "openclaw-interval-event-isolated-",
       reason: "interval",
       isolatedSession: true,
-      forceSenderIsOwnerFalse: false,
+      forceSenderIsOwnerFalse: true,
     });
   });
 
