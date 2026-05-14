@@ -437,6 +437,7 @@ function stripInboundMetadataForUserRole(text: string, role: "user" | "assistant
   return stripInboundMetadata(text);
 }
 
+// Keep the historical `System (untrusted):` variant here only to scrub older transcripts.
 const GENERATED_SYSTEM_MESSAGE_RE = /^System(?: \(untrusted\))?: \[[^\]]+\]\s*/;
 
 function isGeneratedSystemWrapperMessage(text: string, role: "user" | "assistant"): boolean {
@@ -648,7 +649,7 @@ export async function buildSessionEntry(
         // dropped by sanitizeSessionText. We deliberately do NOT use the prior
         // user message's pattern-match to drop the next assistant message:
         // user-typed text can match those same patterns (`[cron:...]`,
-        // `System (untrusted): ...`) and a cross-message drop would let users
+        // legacy `System (untrusted): ...`) and a cross-message drop would let users
         // exfiltrate real assistant replies from the dreaming corpus by
         // prefixing their own prompt. See PR #70737 review (aisle-research-bot).
         continue;
