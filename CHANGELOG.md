@@ -9,7 +9,7 @@ Docs: https://docs.openclaw.ai
 - Maintainer tooling: fail CI when pull requests add package patch files or pnpm patched dependencies, preserving the upstream-and-bump dependency workflow.
 - Amazon Bedrock: externalize the Bedrock and Bedrock Mantle provider packages so core installs no longer pull AWS SDK dependencies unless those providers are installed.
 - Plugins: externalize Slack, OpenShell sandbox, and Anthropic Vertex so their runtime dependency cones install only when those plugins are installed.
-- System events: remove queued-event trust metadata and render runtime event context with a single `System:` prefix, simplifying async prompt context handling.
+- System events: remove queued-event trust metadata and its OpenGrep enforcement rule, and render runtime event context with a single `System:` prefix to simplify async prompt context handling.
 - Control UI/WebChat: add a persisted auto-scroll mode selector so users can keep the current near-bottom behavior, always follow streaming output, or turn automatic streaming scroll off and use the New messages button manually. Fixes #7648 and #81287. Thanks @BunsDev.
 - ACP: add `acp.fallbacks` so ACP turns can try configured backup runtime backends when the primary backend is unavailable before any output is emitted. (#69542) Thanks @kaseonedge.
 
