@@ -4,7 +4,7 @@ const PACKAGE_NAME = "@openclaw/security-gate";
 const VERSION = "0.0.1";
 const PACKAGE_LABEL = `${PACKAGE_NAME}@${VERSION}`;
 const BASE_URL = "https://clawhub.ai";
-const PACKAGE_PATH = `/plugins/${encodeScopedPackageForClawHubPath(PACKAGE_NAME)}`;
+const PACKAGE_PATH = `/plugins/${PACKAGE_NAME}`;
 const LINKS = {
   plugin: `${BASE_URL}${PACKAGE_PATH}`,
   clawscan: `${BASE_URL}${PACKAGE_PATH}/security/clawscan`,
@@ -18,14 +18,6 @@ const plain = args.has("--plain") || process.env.NO_COLOR === "1" || process.env
 const useHyperlinks = !plain && process.stdout.isTTY && !args.has("--raw-links-only");
 const showRawLinks = !args.has("--no-raw-links");
 const columns = Math.max(72, Math.min(process.stdout.columns || 88, 104));
-
-function encodeScopedPackageForClawHubPath(name) {
-  if (name.startsWith("@")) {
-    const [scope, pkg] = name.split("/");
-    return `${encodeURIComponent(scope)}/${encodeURIComponent(pkg ?? "")}`;
-  }
-  return encodeURIComponent(name);
-}
 
 function osc8(label, url) {
   if (!useHyperlinks) {
