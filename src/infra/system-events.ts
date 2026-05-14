@@ -36,7 +36,7 @@ type SystemEventOptions = {
   sessionKey: string;
   contextKey?: string | null;
   deliveryContext?: DeliveryContext;
-  trusted?: unknown;
+  trusted?: boolean;
 };
 
 function requireSessionKey(key?: string | null): string {
