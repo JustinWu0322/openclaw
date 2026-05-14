@@ -643,6 +643,19 @@ describe("sanitizeAssistantVisibleText", () => {
     expect(sanitizeAssistantVisibleText(["<tool_calls>", "<tool_calls>"].join("\n"))).toBe("");
   });
 
+  it("strips closed plural protocol blocks without exposing plain text bodies", () => {
+    expect(
+      sanitizeAssistantVisibleText(
+        ["<tool_calls>", "secret body", "</tool_calls>", "Visible"].join("\n"),
+      ),
+    ).toBe("Visible");
+    expect(
+      sanitizeAssistantVisibleText(
+        ["Before", "<function_calls>", "secret body", "</function_calls>", "After"].join("\n"),
+      ),
+    ).toBe("Before\nAfter");
+  });
+
   it("does not unwrap singular protocol block bodies as visible text", () => {
     expect(
       sanitizeAssistantVisibleText(["<tool_result>", "secret", "</tool_result>"].join("\n")),

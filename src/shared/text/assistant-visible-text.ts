@@ -13,6 +13,9 @@ const MEMORY_TAG_QUICK_RE = /<\s*\/?\s*relevant[-_]memories\b/i;
 const FILE_CONTENTS_TAG_RE = /<\s*file_contents\b[^>]*>[\s\S]*?(?:<\s*\/\s*file_contents\s*>|$)/gi;
 const FILE_CONTENTS_TAG_QUICK_RE = /<\s*file_contents\b/i;
 const LEGACY_BRACKET_TOOL_BLOCK_QUICK_RE = /\[\s*\/?\s*TOOL_(?:CALL|RESULT)\s*\]/i;
+const PLURAL_TOOL_CALL_BLOCK_RE =
+  /^[\t ]*<\s*(tool_calls|function_calls)\b[^<>]*>[\t ]*\r?\n[\s\S]*?^[\t ]*<\s*\/\s*\1\s*>[\t ]*(?:\r?\n|$)/gim;
+const PLURAL_TOOL_CALL_BLOCK_QUICK_RE = /<\s*(?:tool_calls|function_calls)\b/i;
 
 /**
  * Strip XML-style tool call tags that models sometimes emit as plain text.
@@ -630,10 +633,23 @@ function stripFileContentsTags(text: string): string {
     return text;
   }
 
+  return stripMatchedBlocksOutsideCode(text, FILE_CONTENTS_TAG_RE);
+}
+
+function stripPluralToolCallBlocks(text: string): string {
+  if (!text || !PLURAL_TOOL_CALL_BLOCK_QUICK_RE.test(text)) {
+    return text;
+  }
+
+  return stripMatchedBlocksOutsideCode(text, PLURAL_TOOL_CALL_BLOCK_RE);
+}
+
+function stripMatchedBlocksOutsideCode(text: string, pattern: RegExp): string {
   const codeRegions = findCodeRegions(text);
   let result = "";
   let cursor = 0;
-  for (const match of text.matchAll(FILE_CONTENTS_TAG_RE)) {
+  pattern.lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
     const start = match.index ?? 0;
     if (isInsideCode(start, codeRegions)) {
       continue;
@@ -738,6 +754,7 @@ function applyAssistantVisibleTextStagePipeline(
     cleaned = stripModelSpecialTokens(cleaned);
     cleaned = stripRelevantMemoriesTags(cleaned);
     cleaned = stripFileContentsTags(cleaned);
+    cleaned = stripPluralToolCallBlocks(cleaned);
     cleaned = stripToolCallXmlTags(cleaned, {
       stripFunctionCallsXmlPayloads: options.stripFunctionCallsXmlPayloads,
     });
