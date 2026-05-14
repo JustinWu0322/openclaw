@@ -1,4 +1,5 @@
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { resolveSecretInputRef } from "../config/types.secrets.js";
 import { resolveProviderSyntheticAuthWithPlugin } from "../plugins/provider-runtime.js";
 import type { AuthProfileStore } from "./auth-profiles/types.js";
 import {
@@ -208,6 +209,29 @@ function resolveConfigBackedProviderAuth(params: {
   }
 
   const configuredProvider = params.config?.models?.providers?.[authProvider];
+  const configuredApiKeyRef = resolveSecretInputRef({
+    value: configuredProvider?.apiKey,
+    defaults: params.config?.secrets?.defaults,
+  }).ref;
+  if (configuredApiKeyRef?.id.trim()) {
+    if (configuredApiKeyRef.source === "env") {
+      const envVar = configuredApiKeyRef.id.trim();
+      const envValue = params.env?.[envVar]?.trim();
+      return envValue
+        ? {
+            apiKey: envVar,
+            discoveryApiKey: toDiscoveryApiKey(envValue),
+            mode: "api_key",
+            source: "config",
+          }
+        : undefined;
+    }
+    return {
+      apiKey: resolveNonEnvSecretRefApiKeyMarker(configuredApiKeyRef.source),
+      mode: "api_key",
+      source: "config",
+    };
+  }
   if (typeof configuredProvider?.apiKey !== "string") {
     return undefined;
   }

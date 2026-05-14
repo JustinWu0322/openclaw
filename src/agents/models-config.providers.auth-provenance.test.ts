@@ -228,6 +228,66 @@ describe("models-config provider auth provenance", () => {
     });
   });
 
+  it("resolves configured env SecretRef api keys for catalog discovery", () => {
+    const auth = createProviderApiKeyResolver(
+      {
+        MY_VLLM_KEY: "resolved-vllm-key",
+      } as NodeJS.ProcessEnv,
+      {
+        version: 1,
+        profiles: {},
+      },
+      {
+        models: {
+          providers: {
+            vllm: {
+              baseUrl: "http://127.0.0.1:8000/v1",
+              apiKey: { source: "env", provider: "default", id: "MY_VLLM_KEY" },
+              api: "openai-completions",
+              models: [],
+            },
+          },
+        },
+      },
+    );
+
+    expect(auth("vllm")).toEqual({
+      apiKey: "MY_VLLM_KEY",
+      discoveryApiKey: "resolved-vllm-key",
+    });
+  });
+
+  it("uses configured env SecretRef api keys in config-backed auth summaries", () => {
+    const auth = createProviderAuthResolver(
+      {
+        MY_VLLM_KEY: "resolved-vllm-key",
+      } as NodeJS.ProcessEnv,
+      {
+        version: 1,
+        profiles: {},
+      },
+      {
+        models: {
+          providers: {
+            vllm: {
+              baseUrl: "http://127.0.0.1:8000/v1",
+              apiKey: { source: "env", provider: "default", id: "MY_VLLM_KEY" },
+              api: "openai-completions",
+              models: [],
+            },
+          },
+        },
+      },
+    );
+
+    expect(auth("vllm")).toEqual({
+      apiKey: "MY_VLLM_KEY",
+      discoveryApiKey: "resolved-vllm-key",
+      mode: "api_key",
+      source: "none",
+    });
+  });
+
   it("does not send missing custom env markers as catalog discovery keys", () => {
     const auth = createProviderApiKeyResolver(
       {} as NodeJS.ProcessEnv,
