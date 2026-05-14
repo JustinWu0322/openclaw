@@ -189,7 +189,14 @@ describe("runHeartbeatOnce heartbeat response tool", () => {
   it.each([
     {
       name: "text",
-      reply: { text: "Visible alert from a non-tool response" },
+      reply: {
+        text: [
+          "<tool_calls>",
+          "<file_contents path='/redacted/workspace/HEARTBEAT.md' isStale=false isFullFile=true>",
+          " 1|# HEARTBEAT.md",
+          "</file_contents>",
+        ].join("\n"),
+      },
     },
     {
       name: "media",

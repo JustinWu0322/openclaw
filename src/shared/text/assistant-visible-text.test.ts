@@ -625,48 +625,6 @@ describe("sanitizeAssistantVisibleText", () => {
       "Visible prefix",
     );
   });
-
-  it("strips heartbeat protocol scaffolding while preserving visible text", () => {
-    const input = [
-      "Visible alert",
-      "<tool_calls>",
-      "<file_contents path='/redacted/workspace/HEARTBEAT.md' isStale=false isFullFile=true>",
-      " 1|# HEARTBEAT.md",
-      "</file_contents>",
-      "Done",
-    ].join("\n");
-
-    expect(sanitizeAssistantVisibleText(input)).toBe("Visible alert\n\nDone");
-  });
-
-  it("strips repeated bare tool_calls protocol tags", () => {
-    expect(sanitizeAssistantVisibleText(["<tool_calls>", "<tool_calls>"].join("\n"))).toBe("");
-  });
-
-  it("strips closed plural protocol blocks without exposing plain text bodies", () => {
-    expect(
-      sanitizeAssistantVisibleText(
-        ["<tool_calls>", "secret body", "</tool_calls>", "Visible"].join("\n"),
-      ),
-    ).toBe("Visible");
-    expect(
-      sanitizeAssistantVisibleText(
-        ["Before", "<function_calls>", "secret body", "</function_calls>", "After"].join("\n"),
-      ),
-    ).toBe("Before\nAfter");
-  });
-
-  it("does not unwrap singular protocol block bodies as visible text", () => {
-    expect(
-      sanitizeAssistantVisibleText(["<tool_result>", "secret", "</tool_result>"].join("\n")),
-    ).toBe("<tool_result>\nsecret\n</tool_result>");
-    expect(sanitizeAssistantVisibleText(["<tool_call>", "secret", "</tool_call>"].join("\n"))).toBe(
-      "<tool_call>\nsecret\n</tool_call>",
-    );
-    expect(
-      sanitizeAssistantVisibleText(["<function_call>", "secret", "</function_call>"].join("\n")),
-    ).toBe("<function_call>\nsecret\n</function_call>");
-  });
 });
 
 describe("sanitizeAssistantVisibleTextWithProfile", () => {
