@@ -2880,7 +2880,7 @@ describe("drainFormattedSystemEvents", () => {
     }
   });
 
-  it("keeps channel summary lines prefixed as trusted system output on new main sessions", async () => {
+  it("keeps channel summary lines prefixed as system output on new main sessions", async () => {
     channelSummaryMocks.buildChannelSummary.mockResolvedValue([
       "WhatsApp: linked\n  - default (line one\nline two)",
     ]);

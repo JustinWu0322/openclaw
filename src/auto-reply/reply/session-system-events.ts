@@ -27,13 +27,18 @@ const selectGenericSystemEvents = (events: readonly SystemEvent[]): SystemEvent[
   return selected;
 };
 
+export type FormattedSystemEventsResult = {
+  text: string;
+  hasQueuedEvents: boolean;
+};
+
 /** Drain queued system events, format as `System:` lines, return the block (or undefined). */
-export async function drainFormattedSystemEvents(params: {
+export async function drainFormattedSystemEventBlock(params: {
   cfg: OpenClawConfig;
   sessionKey: string;
   isMainSession: boolean;
   isNewSession: boolean;
-}): Promise<string | undefined> {
+}): Promise<FormattedSystemEventsResult | undefined> {
   const compactSystemEvent = (line: string): string | null => {
     const trimmed = line.trim();
     if (!trimmed) {
@@ -133,7 +138,20 @@ export async function drainFormattedSystemEvents(params: {
 
   // Each sub-line gets its own prefix so continuation lines can't be mistaken
   // for regular user content.
-  return summaryLines.length > 0
-    ? [...summaryLines, ...systemLines].join("\n")
-    : systemLines.join("\n");
+  return {
+    text:
+      summaryLines.length > 0
+        ? [...summaryLines, ...systemLines].join("\n")
+        : systemLines.join("\n"),
+    hasQueuedEvents: systemLines.length > 0,
+  };
+}
+
+export async function drainFormattedSystemEvents(params: {
+  cfg: OpenClawConfig;
+  sessionKey: string;
+  isMainSession: boolean;
+  isNewSession: boolean;
+}): Promise<string | undefined> {
+  return (await drainFormattedSystemEventBlock(params))?.text;
 }
