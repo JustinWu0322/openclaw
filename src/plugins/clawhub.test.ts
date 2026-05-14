@@ -355,12 +355,46 @@ describe("installPluginFromClawHub", () => {
       archivePath: "/tmp/clawhub-demo/archive.zip",
     });
     expectSuccessfulClawHubInstall(result);
-    expect(logger.info).toHaveBeenCalledWith("ClawHub code-plugin demo@2026.3.22 channel=official");
+    expect(logger.info).toHaveBeenCalledWith(
+      "ClawHub package demo@2026.3.22: code plugin, official channel",
+    );
     expect(logger.info).toHaveBeenCalledWith(
       "Compatibility: pluginApi=>=2026.3.22 minGateway=2026.3.0",
     );
     expect(logger.warn).not.toHaveBeenCalled();
     expect(archiveCleanupMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains community ClawHub packages as third-party code", async () => {
+    fetchClawHubPackageDetailMock.mockResolvedValueOnce({
+      package: {
+        name: "demo",
+        displayName: "Demo",
+        family: "code-plugin",
+        channel: "community",
+        isOfficial: false,
+        createdAt: 0,
+        updatedAt: 0,
+        compatibility: {
+          pluginApiRange: ">=2026.3.22",
+          minGatewayVersion: "2026.3.0",
+        },
+      },
+    });
+    const logger = createLoggerSpies();
+
+    const result = await installPluginFromClawHub({
+      spec: "clawhub:demo",
+      baseUrl: "https://clawhub.ai",
+      logger,
+    });
+
+    const success = expectInstallSuccess(result);
+    expect(success.pluginId).toBe("demo");
+    expect(success.clawhub?.clawhubChannel).toBe("community");
+    expect(logger.warn).toHaveBeenCalledWith(
+      'ClawHub package "demo" is in the community channel, not the official OpenClaw channel. Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.',
+    );
   });
 
   it("continues after a ClawHub release blocked from download is acknowledged", async () => {
@@ -395,7 +429,12 @@ describe("installPluginFromClawHub", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('ClawHub trust warning for "demo@2026.3.22"'),
     );
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("blockedFromDownload=true"));
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("ClawHub has blocked downloads for this release"),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("A plugin can execute code on this machine"),
+    );
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("manual_moderation"));
     expect(downloadClawHubPackageArchiveMock).toHaveBeenCalled();
     expect(installPluginFromArchiveMock).toHaveBeenCalled();
@@ -428,8 +467,9 @@ describe("installPluginFromClawHub", () => {
 
     const failure = expectInstallFailure(result);
     expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED);
-    expect(failure.warning).toContain("scan=not-run");
-    expect(failure.warning).toContain("blockedFromDownload=false");
+    expect(failure.warning).toContain("security scan status is not-run");
+    expect(failure.warning).toContain("A plugin can execute code on this machine");
+    expect(failure.warning).not.toContain("blockedFromDownload=false");
     expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
     expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
   });
@@ -462,7 +502,6 @@ describe("installPluginFromClawHub", () => {
     });
 
     const warning = logger.warn.mock.calls[0]?.[0];
-    expect(warning).toContain("scan=clean");
     expect(warning).toContain("bad\\nreason");
     expect(warning).not.toContain("\u001b");
     expect(warning).not.toContain("bad\nreason");
@@ -630,7 +669,7 @@ describe("installPluginFromClawHub", () => {
       expect.objectContaining({
         packageName: "demo",
         version: "2026.3.22",
-        warning: expect.stringContaining("payload_strings"),
+        warning: expect.stringContaining("payload strings"),
       }),
     );
     expect(downloadClawHubPackageArchiveMock).toHaveBeenCalled();
@@ -666,7 +705,10 @@ describe("installPluginFromClawHub", () => {
     });
 
     expectSuccessfulClawHubInstall(result);
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("stale=true"));
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("ClawHub has not completed a fresh clean security check"),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("scan data is stale"));
     expect(onClawHubRisk).not.toHaveBeenCalled();
   });
 
@@ -700,8 +742,10 @@ describe("installPluginFromClawHub", () => {
     });
 
     expectSuccessfulClawHubInstall(result);
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("scan=pending"));
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("pending=true"));
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("ClawHub has not completed a fresh clean security check"),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("security scan is pending"));
     expect(onClawHubRisk).not.toHaveBeenCalled();
   });
 
@@ -732,9 +776,9 @@ describe("installPluginFromClawHub", () => {
 
     const failure = expectInstallFailure(result);
     expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED);
-    expect(failure.warning).toContain("scan=pending");
-    expect(failure.warning).toContain("blockedFromDownload=false");
-    expect(failure.warning).toContain("scan:pending");
+    expect(failure.warning).toContain("security scan status is pending");
+    expect(failure.warning).toContain("scan pending");
+    expect(failure.warning).not.toContain("blockedFromDownload=false");
     expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
   });
 

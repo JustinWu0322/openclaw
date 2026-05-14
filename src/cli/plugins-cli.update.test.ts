@@ -369,7 +369,7 @@ describe("plugins cli update", () => {
           pluginId: "demo",
           status: "skipped",
           message:
-            'Skipped demo ClawHub update: ClawHub release "@openclaw/plugin-demo@1.1.0" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue. Existing installed plugin left unchanged.',
+            'Skipped demo ClawHub update: ClawHub release "@openclaw/plugin-demo@1.1.0" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk. Existing installed plugin left unchanged.',
         },
       ],
       changed: false,

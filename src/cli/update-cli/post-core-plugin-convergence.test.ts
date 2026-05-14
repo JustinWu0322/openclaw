@@ -155,7 +155,7 @@ describe("runPostCorePluginConvergence", () => {
     mocks.repairMissingConfiguredPluginInstalls.mockResolvedValue({
       changes: ['Installed missing configured plugin "discord".'],
       notices: [
-        'ClawHub trust warning for "@openclaw/discord@1.2.3": scan=pending; reasons=pending.',
+        'ClawHub trust warning for "@openclaw/discord@1.2.3": ClawHub has not completed a fresh clean security check for this release. Status: security scan is pending. Review the package before enabling it.',
       ],
       warnings: [],
       records: { discord: { source: "clawhub", installPath: "/p/discord" } },
@@ -171,9 +171,9 @@ describe("runPostCorePluginConvergence", () => {
     expect(result.notices).toStrictEqual([
       {
         reason:
-          'ClawHub trust warning for "@openclaw/discord@1.2.3": scan=pending; reasons=pending.',
+          'ClawHub trust warning for "@openclaw/discord@1.2.3": ClawHub has not completed a fresh clean security check for this release. Status: security scan is pending. Review the package before enabling it.',
         message:
-          'ClawHub trust warning for "@openclaw/discord@1.2.3": scan=pending; reasons=pending.',
+          'ClawHub trust warning for "@openclaw/discord@1.2.3": ClawHub has not completed a fresh clean security check for this release. Status: security scan is pending. Review the package before enabling it.',
         guidance: [],
       },
     ]);

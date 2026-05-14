@@ -386,8 +386,29 @@ function normalizeClawHubTrustToken(value: string | null | undefined): string {
   return normalizeOptionalString(value)?.toLowerCase() ?? "";
 }
 
-function formatClawHubTrustTokenForWarning(label: string, token: string): string {
-  return token ? `${label} ${token}` : `${label} missing`;
+function formatClawHubTrustStatus(label: string, token: string): string {
+  return token ? `${label} is ${token}` : `${label} is missing`;
+}
+
+function formatClawHubReasonCode(reason: string): string {
+  const normalized = normalizeClawHubTrustToken(reason);
+  switch (normalized) {
+    case "scan:malicious":
+      return "scanner reported malicious behavior";
+    case "static:malicious":
+      return "static analysis reported malicious behavior";
+    case "payload_strings":
+      return "suspicious payload strings";
+    case "scan:pending":
+    case "pending_scan":
+    case "scan_pending":
+      return "scan pending";
+    case "scan:stale":
+    case "stale_scan":
+      return "scan data stale";
+    default:
+      return reason;
+  }
 }
 
 function isPendingOrStaleTrustWarning(trust: ClawHubPackageSecurityTrust): boolean {
@@ -405,26 +426,43 @@ function isNonRiskReason(trust: ClawHubPackageSecurityTrust, reason: string): bo
 function resolveClawHubRiskReasons(trust: ClawHubPackageSecurityTrust): string[] {
   const reasons: string[] = [];
   if (trust.blockedFromDownload) {
-    reasons.push("blocked from download");
+    reasons.push("ClawHub has blocked downloads for this release");
   }
   const scanStatus = normalizeClawHubTrustToken(trust.scanStatus);
   if (scanStatus !== "clean" && !isNonRiskScanStatus(trust, scanStatus)) {
-    reasons.push(formatClawHubTrustTokenForWarning("scan status", scanStatus));
+    reasons.push(formatClawHubTrustStatus("security scan status", scanStatus));
   }
   const moderationState = normalizeClawHubTrustToken(trust.moderationState);
   if (
     CLAWHUB_RISK_MODERATION_STATES.has(moderationState) ||
     !CLAWHUB_SAFE_MODERATION_STATES.has(moderationState)
   ) {
-    reasons.push(formatClawHubTrustTokenForWarning("moderation state", moderationState));
+    reasons.push(formatClawHubTrustStatus("moderation state", moderationState));
   }
   for (const reason of trust.reasons) {
     const normalized = normalizeClawHubTrustToken(reason);
     if (normalized && !isNonRiskReason(trust, normalized)) {
-      reasons.push(reason);
+      reasons.push(formatClawHubReasonCode(reason));
     }
   }
   return reasons;
+}
+
+function resolveClawHubTrustStatusNotices(trust: ClawHubPackageSecurityTrust): string[] {
+  const notices: string[] = [];
+  if (trust.pending) {
+    notices.push("security scan is pending");
+  }
+  if (trust.stale) {
+    notices.push("scan data is stale");
+  }
+  for (const reason of trust.reasons) {
+    const normalized = normalizeClawHubTrustToken(reason);
+    if (normalized && isNonRiskReason(trust, normalized)) {
+      notices.push(formatClawHubReasonCode(reason));
+    }
+  }
+  return notices;
 }
 
 function formatClawHubTrustWarning(params: {
@@ -433,20 +471,22 @@ function formatClawHubTrustWarning(params: {
   trust: ClawHubPackageSecurityTrust;
   riskReasons: readonly string[];
 }): string {
-  const reasons = params.trust.reasons.map((reason) => sanitizeTerminalText(reason));
-  const details = [
-    `scan=${sanitizeTerminalText(params.trust.scanStatus ?? "unknown")}`,
-    `moderation=${sanitizeTerminalText(params.trust.moderationState ?? "none")}`,
-    `blockedFromDownload=${String(params.trust.blockedFromDownload)}`,
-    `pending=${String(params.trust.pending)}`,
-    `stale=${String(params.trust.stale)}`,
-    `reasons=${reasons.length ? reasons.join(", ") : "none"}`,
-  ];
-  const riskSuffix =
-    params.riskReasons.length > 0
-      ? ` Risk signals: ${params.riskReasons.map((reason) => sanitizeTerminalText(reason)).join(", ")}.`
-      : "";
-  return `ClawHub trust warning for "${sanitizeTerminalText(params.packageName)}@${sanitizeTerminalText(params.version)}": ${details.join("; ")}.${riskSuffix}`;
+  const releaseLabel = formatClawHubReleaseLabel(params.packageName, params.version);
+  if (params.riskReasons.length > 0) {
+    return [
+      `ClawHub trust warning for "${releaseLabel}": ClawHub flagged this release as risky.`,
+      "A plugin can execute code on this machine and access OpenClaw data, credentials, tools, and configured services.",
+      `Findings: ${params.riskReasons.map((reason) => sanitizeTerminalText(reason)).join("; ")}.`,
+      "Install only if you reviewed the package and trust the source.",
+    ].join(" ");
+  }
+
+  const notices = resolveClawHubTrustStatusNotices(params.trust);
+  const status = notices.length > 0 ? ` Status: ${notices.join("; ")}.` : "";
+  return [
+    `ClawHub trust warning for "${releaseLabel}": ClawHub has not completed a fresh clean security check for this release.`,
+    `${status} Review the package before enabling it.`,
+  ].join(" ");
 }
 
 function formatClawHubReleaseLabel(packageName: string, version: string): string {
@@ -538,7 +578,7 @@ async function ensureClawHubPackageTrustAcknowledged(params: {
     return null;
   }
   return buildClawHubInstallFailure(
-    `ClawHub release "${formatClawHubReleaseLabel(params.packageName, params.version)}" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue.`,
+    `ClawHub release "${formatClawHubReleaseLabel(params.packageName, params.version)}" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk.`,
     CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED,
     warning,
   );
@@ -1217,9 +1257,10 @@ function logClawHubPackageSummary(params: {
   if (!pkg) {
     return;
   }
-  const verification = pkg.verification?.tier ? ` verification=${pkg.verification.tier}` : "";
+  const familyLabel = pkg.family === "code-plugin" ? "code plugin" : pkg.family;
+  const verification = pkg.verification?.tier ? `, ${pkg.verification.tier} verification` : "";
   params.logger?.info?.(
-    `ClawHub ${pkg.family} ${pkg.name}@${params.version} channel=${pkg.channel}${verification}`,
+    `ClawHub package ${pkg.name}@${params.version}: ${familyLabel}, ${pkg.channel} channel${verification}`,
   );
   const compatibilityParts = [
     params.compatibility?.pluginApiRange
@@ -1234,7 +1275,7 @@ function logClawHubPackageSummary(params: {
   }
   if (pkg.channel !== "official") {
     params.logger?.warn?.(
-      `ClawHub package "${pkg.name}" is ${pkg.channel}; review source and verification before enabling.`,
+      `ClawHub package "${pkg.name}" is in the ${pkg.channel} channel, not the official OpenClaw channel. Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.`,
     );
   }
 }

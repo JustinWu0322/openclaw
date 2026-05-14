@@ -1735,7 +1735,7 @@ describe("updateNpmInstalledPlugins", () => {
       ok: false,
       code: "clawhub_risk_acknowledgement_required",
       error:
-        'ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue.',
+        'ClawHub release "demo@1.2.4" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk.',
     });
     const installPath = createInstalledPackageDir({
       name: "demo",
@@ -1778,7 +1778,7 @@ describe("updateNpmInstalledPlugins", () => {
         status: "skipped",
         currentVersion: "1.2.3",
         message:
-          'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue. Existing installed plugin left unchanged.',
+          'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk. Existing installed plugin left unchanged.',
       },
     ]);
   });

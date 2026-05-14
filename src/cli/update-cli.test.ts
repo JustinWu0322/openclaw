@@ -1366,7 +1366,7 @@ describe("update-cli", () => {
 
   it("includes non-blocking ClawHub trust warnings in json post-core plugin output", async () => {
     const trustWarning =
-      'ClawHub trust warning for "@openclaw/demo@1.0.0": scan=pending; moderation=none; blockedFromDownload=false; pending=true; stale=false; reasons=pending.';
+      'ClawHub trust warning for "@openclaw/demo@1.0.0": ClawHub has not completed a fresh clean security check for this release. Status: security scan is pending. Review the package before enabling it.';
     updateNpmInstalledPlugins.mockImplementationOnce(
       async (params: { config: OpenClawConfig; logger?: { warn?: (message: string) => void } }) => {
         params.logger?.warn?.(trustWarning);
@@ -1516,7 +1516,7 @@ describe("update-cli", () => {
           pluginId: "demo",
           status: "skipped",
           message:
-            'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue. Existing installed plugin left unchanged.',
+            'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk. Existing installed plugin left unchanged.',
         },
       ],
     });
@@ -1545,7 +1545,7 @@ describe("update-cli", () => {
           pluginId: "demo",
           status: "skipped",
           message:
-            'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" has trust warnings. Review the package and rerun with --acknowledge-clawhub-risk to continue. Existing installed plugin left unchanged.',
+            'Skipped demo ClawHub update: ClawHub release "demo@1.2.4" was not installed because the risk was not acknowledged. Review the warning above; to continue anyway, rerun with --acknowledge-clawhub-risk. Existing installed plugin left unchanged.',
         },
       ],
     });

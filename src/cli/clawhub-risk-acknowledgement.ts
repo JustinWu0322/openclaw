@@ -23,7 +23,7 @@ export function resolveClawHubRiskAcknowledgementCliOptions(params: {
         ? undefined
         : async (request) =>
             await promptYesNo(
-              `Continue ${params.action} ClawHub package "${sanitizeTerminalText(request.packageName)}@${sanitizeTerminalText(request.version)}" despite this warning?`,
+              `Continue ${params.action} ClawHub package "${sanitizeTerminalText(request.packageName)}@${sanitizeTerminalText(request.version)}"? ClawHub flagged this release as risky, and plugins can execute code on this machine.`,
             ),
   };
 }
