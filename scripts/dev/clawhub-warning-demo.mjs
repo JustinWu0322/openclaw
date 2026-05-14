@@ -163,15 +163,13 @@ function wrapWords(text, width) {
 }
 
 function box(title, lines) {
-  const contentWidth = Math.max(54, Math.min(columns - 4, 78));
-  const titlePrefix = "╭─ ";
-  const titleSuffix = " ";
-  const titleText = `${titlePrefix}${title}${titleSuffix}`;
-  const totalWidth = Math.max(contentWidth + 4, visibleLength(titleText) + 1);
-  const titleFillWidth = Math.max(0, totalWidth - visibleLength(titleText) - 1);
-  const top = `${titleText}${"─".repeat(titleFillWidth)}╮`;
-  const bottom = `╰${"─".repeat(totalWidth - 2)}╯`;
-  const innerWidth = totalWidth - 4;
+  const innerWidth = Math.max(54, Math.min(columns - 4, 78));
+  const totalWidth = innerWidth + 4;
+  const borderWidth = totalWidth - 2;
+  const titleSegment = `─ ${title} `;
+  const titleFillWidth = Math.max(0, borderWidth - visibleLength(titleSegment));
+  const top = `╭${titleSegment}${"─".repeat(titleFillWidth)}╮`;
+  const bottom = `╰${"─".repeat(borderWidth)}╯`;
   const body = lines.flatMap((line) => {
     if (line === "") {
       return [`│ ${" ".repeat(innerWidth)} │`];
@@ -210,7 +208,7 @@ function rawLinksBlock(kind) {
 }
 
 function malicious() {
-  const title = red("⚠  BLOCKED — ClawHub flagged this release as malicious");
+  const title = red("BLOCKED - ClawHub flagged this release as malicious");
   const scan = osc8(red("malicious"), LINKS.clawscan);
   const staticAnalysis = osc8(red("malicious behavior detected"), LINKS.staticAnalysis);
   const lines = [
@@ -232,7 +230,7 @@ function malicious() {
 }
 
 function suspicious() {
-  const title = yellow("⚠  REVIEW REQUIRED — ClawHub flagged this release for security review");
+  const title = yellow("REVIEW REQUIRED - ClawHub flagged this release for security review");
   const lines = [
     `• Security scan:     ${osc8(yellow("suspicious"), LINKS.clawscan)}`,
     `• Finding:           ${osc8("suspicious payload strings", LINKS.staticAnalysis)}`,
@@ -255,7 +253,7 @@ function suspicious() {
 }
 
 function pending() {
-  const title = yellow("⚠  REVIEW RECOMMENDED — ClawHub has not completed a fresh clean check");
+  const title = yellow("REVIEW RECOMMENDED - ClawHub has not completed a fresh clean check");
   const lines = [
     `• Security scan:     ${osc8(yellow("pending"), LINKS.clawscan)}`,
     "• Status:            scan not complete",
