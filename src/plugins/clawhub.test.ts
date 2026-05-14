@@ -363,7 +363,7 @@ describe("installPluginFromClawHub", () => {
     expect(archiveCleanupMock).toHaveBeenCalledTimes(1);
   });
 
-  it("stops before downloading ClawHub releases blocked from download", async () => {
+  it("continues after a ClawHub release blocked from download is acknowledged", async () => {
     fetchClawHubPackageSecurityMock.mockResolvedValueOnce({
       package: {
         name: "demo",
@@ -391,16 +391,14 @@ describe("installPluginFromClawHub", () => {
       acknowledgeClawHubRisk: true,
     });
 
-    const failure = expectInstallFailure(result);
-    expect(failure.code).toBe(CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_DOWNLOAD_BLOCKED);
-    expect(failure.error).toContain("blocked from download");
-    expect(failure.warning).toContain("scan=malicious");
-    expect(failure.warning).toContain("manual_moderation");
+    expectSuccessfulClawHubInstall(result);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('ClawHub trust warning for "demo@2026.3.22"'),
     );
-    expect(downloadClawHubPackageArchiveMock).not.toHaveBeenCalled();
-    expect(installPluginFromArchiveMock).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("blockedFromDownload=true"));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("manual_moderation"));
+    expect(downloadClawHubPackageArchiveMock).toHaveBeenCalled();
+    expect(installPluginFromArchiveMock).toHaveBeenCalled();
   });
 
   it("requires acknowledgement before downloading non-clean ClawHub releases", async () => {

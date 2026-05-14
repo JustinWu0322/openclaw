@@ -54,7 +54,6 @@ export const CLAWHUB_INSTALL_ERROR_CODE = {
   MISSING_ARCHIVE_INTEGRITY: "missing_archive_integrity",
   ARCHIVE_INTEGRITY_MISMATCH: "archive_integrity_mismatch",
   CLAWHUB_SECURITY_UNAVAILABLE: "clawhub_security_unavailable",
-  CLAWHUB_DOWNLOAD_BLOCKED: "clawhub_download_blocked",
   CLAWHUB_RISK_ACKNOWLEDGEMENT_REQUIRED: "clawhub_risk_acknowledgement_required",
 } as const;
 
@@ -518,15 +517,6 @@ async function ensureClawHubPackageTrustAcknowledged(params: {
     trust,
     riskReasons,
   });
-  if (trust.blockedFromDownload) {
-    params.logger?.warn?.(warning);
-    return buildClawHubInstallFailure(
-      `ClawHub release "${formatClawHubReleaseLabel(params.packageName, params.version)}" is blocked from download by ClawHub.`,
-      CLAWHUB_INSTALL_ERROR_CODE.CLAWHUB_DOWNLOAD_BLOCKED,
-      warning,
-    );
-  }
-
   if (riskReasons.length === 0 && !trust.pending && !trust.stale) {
     return null;
   }
