@@ -3,13 +3,12 @@ import {
   isAssistantHeartbeatAckForDisplay,
   stripHeartbeatTokenForDisplay,
 } from "./heartbeat-display.ts";
+import { CHAT_HISTORY_RENDER_LIMIT } from "./history-limits.ts";
 import { extractTextCached } from "./message-extract.ts";
-import { normalizeMessage } from "./message-normalizer.ts";
+import { normalizeMessage, stripMessageDisplayMetadataText } from "./message-normalizer.ts";
 import { normalizeRoleForGrouping } from "./role-normalizer.ts";
 import { messageMatchesSearchQuery } from "./search-match.ts";
 import { extractToolCards, extractToolPreview } from "./tool-cards.ts";
-
-const CHAT_HISTORY_RENDER_LIMIT = 200;
 
 export type BuildChatItemsProps = {
   sessionKey: string;
@@ -250,12 +249,71 @@ function collapseSequentialDuplicateMessages(items: ChatItem[]): ChatItem[] {
   return collapsed;
 }
 
+function hasRenderableNormalizedMessage(message: unknown): boolean {
+  const normalized = normalizeMessage(message);
+  return normalized.content.length > 0 || Boolean(normalized.replyTarget);
+}
+
+function sanitizeStreamText(text: string): string {
+  const stripped = stripMessageDisplayMetadataText(text);
+  return stripped.trim().length > 0 ? stripped : "";
+}
+
+function rawMessageTimestamp(message: unknown): number | null {
+  const timestamp = (message as { timestamp?: unknown }).timestamp;
+  return typeof timestamp === "number" && Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function chatItemTimestamp(item: ChatItem): number | null {
+  switch (item.kind) {
+    case "message":
+      return item.key === "chat:history:notice"
+        ? Number.NEGATIVE_INFINITY
+        : rawMessageTimestamp(item.message);
+    case "divider":
+      return item.timestamp;
+    case "stream":
+      return item.startedAt;
+    case "reading-indicator":
+      return null;
+  }
+  return null;
+}
+
+function sortChatItemsByVisibleTime(items: ChatItem[]): ChatItem[] {
+  return items
+    .map((item, index) => ({ item, index, timestamp: chatItemTimestamp(item) }))
+    .toSorted((a, b) => {
+      if (a.timestamp == null && b.timestamp == null) {
+        return a.index - b.index;
+      }
+      if (a.timestamp == null) {
+        return 1;
+      }
+      if (b.timestamp == null) {
+        return -1;
+      }
+      if (a.timestamp !== b.timestamp) {
+        return a.timestamp - b.timestamp;
+      }
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
+}
+
 export function buildChatItems(props: BuildChatItemsProps): Array<ChatItem | MessageGroup> {
-  const items: ChatItem[] = [];
+  let items: ChatItem[] = [];
   const history = (Array.isArray(props.messages) ? props.messages : []).filter(
     (message) => !isAssistantHeartbeatAckForDisplay(message),
   );
   const tools = Array.isArray(props.toolMessages) ? props.toolMessages : [];
+  const liftedCanvasSources = tools
+    .map((tool) => extractChatMessagePreview(tool))
+    .filter((entry) => Boolean(entry)) as Array<{
+    preview: Extract<NonNullable<ToolCard["preview"]>, { kind: "canvas" }>;
+    text: string | null;
+    timestamp: number | null;
+  }>;
   const historyStart = Math.max(0, history.length - CHAT_HISTORY_RENDER_LIMIT);
   if (historyStart > 0) {
     items.push({
@@ -300,6 +358,9 @@ export function buildChatItems(props: BuildChatItemsProps): Array<ChatItem | Mes
     if (props.searchOpen && searchQuery.trim() && !messageMatchesSearchQuery(msg, searchQuery)) {
       continue;
     }
+    if (!hasRenderableNormalizedMessage(msg) && normalized.role.toLowerCase() !== "assistant") {
+      continue;
+    }
 
     items.push({
       kind: "message",
@@ -307,13 +368,6 @@ export function buildChatItems(props: BuildChatItemsProps): Array<ChatItem | Mes
       message: msg,
     });
   }
-  const liftedCanvasSources = tools
-    .map((tool) => extractChatMessagePreview(tool))
-    .filter((entry) => Boolean(entry)) as Array<{
-    preview: Extract<NonNullable<ToolCard["preview"]>, { kind: "canvas" }>;
-    text: string | null;
-    timestamp: number | null;
-  }>;
   for (const liftedCanvasSource of liftedCanvasSources) {
     const assistantIndex = findNearestAssistantMessageIndex(items, liftedCanvasSource.timestamp);
     if (assistantIndex == null) {
@@ -332,16 +386,22 @@ export function buildChatItems(props: BuildChatItemsProps): Array<ChatItem | Mes
       ),
     };
   }
+  items = items.filter(
+    (item) => item.kind !== "message" || hasRenderableNormalizedMessage(item.message),
+  );
   const segments = props.streamSegments ?? [];
   const maxLen = Math.max(segments.length, tools.length);
   for (let i = 0; i < maxLen; i++) {
-    if (i < segments.length && segments[i].text.trim().length > 0) {
-      items.push({
-        kind: "stream",
-        key: `stream-seg:${props.sessionKey}:${i}`,
-        text: segments[i].text,
-        startedAt: segments[i].ts,
-      });
+    if (i < segments.length) {
+      const text = sanitizeStreamText(segments[i].text);
+      if (text.length > 0) {
+        items.push({
+          kind: "stream",
+          key: `stream-seg:${props.sessionKey}:${i}`,
+          text,
+          startedAt: segments[i].ts,
+        });
+      }
     }
     if (i < tools.length && props.showToolCalls) {
       items.push({
@@ -354,21 +414,22 @@ export function buildChatItems(props: BuildChatItemsProps): Array<ChatItem | Mes
 
   if (props.stream !== null) {
     const key = `stream:${props.sessionKey}:${props.streamStartedAt ?? "live"}`;
-    if (props.stream.trim().length > 0) {
-      if (!stripHeartbeatTokenForDisplay(props.stream).shouldSkip) {
+    const text = sanitizeStreamText(props.stream);
+    if (text.length > 0) {
+      if (!stripHeartbeatTokenForDisplay(text).shouldSkip) {
         items.push({
           kind: "stream",
           key,
-          text: props.stream,
+          text,
           startedAt: props.streamStartedAt ?? Date.now(),
         });
       }
-    } else {
+    } else if (props.stream.trim().length === 0) {
       items.push({ kind: "reading-indicator", key });
     }
   }
 
-  return groupMessages(collapseSequentialDuplicateMessages(items));
+  return groupMessages(collapseSequentialDuplicateMessages(sortChatItemsByVisibleTime(items)));
 }
 
 function messageKey(message: unknown, index: number): string {
