@@ -10,6 +10,8 @@ Docs: https://docs.openclaw.ai
 - Gateway: hide pending Node pairing commands, capabilities, and permissions until approval, and refresh the live approved surface when pairings change. (#80741) Thanks @samzong.
 - Plugins/Feishu/WhatsApp/Line: enforce inbound media size caps while reading download streams, avoiding full buffering of oversized attachments. (#81044, #81050) Thanks @samzong.
 - Config: serialize and retry semantic config mutations centrally, so concurrent commands can rebase safe changes instead of clobbering or hand-rolling command-local retry loops. (#76601)
+- Installer: honor `--no-git-update` for existing git checkouts before resolving release refs, preventing pinned source installs from moving during reinstall.
+- Plugins/install: refresh OpenClaw-managed peer dependency pins when installed plugin peer ranges change, while preserving user-owned dependency pins.
 - Require approval for setup-code device pairing [AI]. (#81292) Thanks @pgondhi987.
 - Plugins/install: preserve third-party peer dependencies in the managed npm root when later plugin installs or updates recalculate the shared dependency tree. Thanks @shakkernerd.
 - Docker: pin setup-time container paths so stale host `.env` OpenClaw paths cannot leak into Linux containers. Fixes #80381. (#81105) Thanks @brokemac79.

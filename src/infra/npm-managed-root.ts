@@ -530,7 +530,12 @@ export async function syncManagedNpmRootPeerDependencies(params: {
     }
   }
   for (const [packageName, dependencySpec] of Object.entries(peerPins)) {
-    nextDependencies[packageName] = dependencies[packageName] ?? dependencySpec;
+    if (
+      previousManagedPeerDependencySet.has(packageName) ||
+      !Object.hasOwn(dependencies, packageName)
+    ) {
+      nextDependencies[packageName] = dependencySpec;
+    }
   }
 
   const managedOverrides = params.omitUnsupportedManagedOverrides
