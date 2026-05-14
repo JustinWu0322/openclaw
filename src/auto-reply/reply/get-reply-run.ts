@@ -1001,10 +1001,14 @@ export async function runPreparedReply(
       senderName: normalizeOptionalString(sessionCtx.SenderName),
       senderUsername: normalizeOptionalString(sessionCtx.SenderUsername),
       senderE164: normalizeOptionalString(sessionCtx.SenderE164),
-      senderIsOwner: forceSenderIsOwnerFalseForSystemEventRun ? false : command.senderIsOwner,
+      senderIsOwner:
+        forceSenderIsOwnerFalseForSystemEventRun || drainedSystemEventBlocks.length > 0
+          ? false
+          : command.senderIsOwner,
       traceAuthorized:
-        (forceSenderIsOwnerFalseForSystemEventRun ? false : command.senderIsOwner) ||
-        (ctx.GatewayClientScopes ?? []).includes("operator.admin"),
+        (forceSenderIsOwnerFalseForSystemEventRun || drainedSystemEventBlocks.length > 0
+          ? false
+          : command.senderIsOwner) || (ctx.GatewayClientScopes ?? []).includes("operator.admin"),
       sessionFile: preparedSessionState.sessionFile,
       workspaceDir,
       config: cfg,

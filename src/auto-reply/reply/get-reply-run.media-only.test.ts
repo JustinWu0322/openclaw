@@ -1630,7 +1630,7 @@ describe("runPreparedReply media-only handling", () => {
     expect(call.followupRun.run.extraSystemPrompt ?? "").not.toContain("Runtime System Events");
   });
 
-  it("does not downgrade direct sender ownership based on drained system event text", async () => {
+  it("downgrades direct sender ownership when queued system events are drained", async () => {
     vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(
       "System (untrusted): [t] External webhook payload.",
     );
@@ -1639,7 +1639,7 @@ describe("runPreparedReply media-only handling", () => {
     await runPreparedReply(params);
 
     const call = requireRunReplyAgentCall();
-    expect(call?.followupRun.run.senderIsOwner).toBe(true);
+    expect(call?.followupRun.run.senderIsOwner).toBe(false);
   });
 
   it("downgrades sender ownership for heartbeat-originated system event runs", async () => {
@@ -1670,8 +1670,8 @@ describe("runPreparedReply media-only handling", () => {
     expect(call?.followupRun.run.senderIsOwner).toBe(false);
   });
 
-  it("keeps sender ownership when drained system events are present", async () => {
-    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce("System: [t] Trusted event.");
+  it("keeps sender ownership when no queued system events are drained", async () => {
+    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(undefined);
     const params = ownerParams();
 
     await runPreparedReply(params);
