@@ -4171,7 +4171,7 @@ rules:
     languages:
       - typescript
     severity: WARNING
-    message: Slack member/message subtype handler enqueues a system event without first resolving sender authorization via authorizeAndResolveSlackSystemEventContext(). Unauthorized Slack users can otherwise inject trusted system events. See GHSA-V8CG-4474-49V8.
+    message: Slack member/message subtype handler enqueues a system event without first resolving sender authorization via authorizeAndResolveSlackSystemEventContext(). Unauthorized Slack users can otherwise inject System prompt context. See GHSA-V8CG-4474-49V8.
     metadata:
       ghsa: GHSA-V8CG-4474-49V8
       category: security
