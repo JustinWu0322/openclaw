@@ -156,14 +156,13 @@ describe("slack prepareSlackMessage inbound contract", () => {
     });
   }
 
-  it("queues inbound message system events as untrusted", async () => {
+  it("queues inbound message system events", async () => {
     const prepared = await prepareWithDefaultCtx(createSlackMessage({}));
 
     assertPrepared(prepared);
     expect(enqueueSystemEventMock).toHaveBeenCalledWith("Slack DM from Alice: hi", {
       sessionKey: prepared.ctxPayload.SessionKey,
       contextKey: "slack:message:D123:1.000",
-      trusted: false,
     });
   });
 

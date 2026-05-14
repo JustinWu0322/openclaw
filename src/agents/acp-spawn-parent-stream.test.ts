@@ -145,7 +145,6 @@ describe("startAcpSpawnParentStreamRelay", () => {
           contextKey?: string;
           sessionKey?: string;
           deliveryContext?: unknown;
-          trusted?: boolean;
         },
       ]
     >;
@@ -154,26 +153,22 @@ describe("startAcpSpawnParentStreamRelay", () => {
         contextKey: options.contextKey,
         sessionKey: options.sessionKey,
         deliveryContext: options.deliveryContext,
-        trusted: options.trusted,
       })),
     ).toEqual([
       {
         contextKey: "acp-spawn:run-1:start",
         sessionKey: "agent:main:main",
         deliveryContext,
-        trusted: false,
       },
       {
         contextKey: "acp-spawn:run-1:progress",
         sessionKey: "agent:main:main",
         deliveryContext,
-        trusted: false,
       },
       {
         contextKey: "acp-spawn:run-1:done",
         sessionKey: "agent:main:main",
         deliveryContext,
-        trusted: false,
       },
     ]);
     const heartbeatCalls = requestHeartbeatMock.mock.calls as Array<
@@ -228,11 +223,10 @@ describe("startAcpSpawnParentStreamRelay", () => {
     );
     expect(progressEvent?.[0]).toContain("codex: hello from child");
     const progressOptions = progressEvent?.[1] as
-      | { contextKey?: unknown; sessionKey?: unknown; trusted?: unknown }
+      | { contextKey?: unknown; sessionKey?: unknown }
       | undefined;
     expect(progressOptions?.contextKey).toBe("acp-spawn:run-cron:progress");
     expect(progressOptions?.sessionKey).toBe("global");
-    expect(progressOptions?.trusted).toBe(false);
     const heartbeatOptions = firstMockCall(requestHeartbeatMock, "heartbeat request")[0] as
       | { agentId?: string; reason?: string }
       | undefined;
