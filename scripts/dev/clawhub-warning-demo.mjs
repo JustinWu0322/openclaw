@@ -100,7 +100,6 @@ function box(title, lines) {
 function metadataBlock() {
   const rows = [
     ["Package", PACKAGE_LABEL],
-    ["Channel", "community (not official)"],
     ["Type", "plugin"],
     ["Requires", "OpenClaw >=2026.3.26"],
     ["ClawHub", osc8("view plugin", LINKS.plugin)],
@@ -169,16 +168,34 @@ function suspicious() {
   ].join("\n");
 }
 
-function community() {
+function pending() {
+  const title = yellow("⚠  REVIEW RECOMMENDED — ClawHub has not completed a fresh clean check");
+  const lines = [
+    `• Security scan:     ${osc8(yellow("pending"), LINKS.clawscan)}`,
+    "• Status:            scan not complete",
+    "",
+    "This does not mean the plugin is malicious, but ClawHub has not completed a clean security check for this release yet.",
+    "Review the ClawHub security details before installing.",
+  ];
   return [
     `Resolving clawhub:${PACKAGE_LABEL}…`,
     "",
     metadataBlock(),
     "",
-    "Community packages are third-party code. Review the publisher, source, and permissions before installing.",
-    rawLinksBlock("plugin-only"),
+    box(title, lines),
+    rawLinksBlock("security"),
     "",
     `Install ${PACKAGE_LABEL}? [y/N] _`,
+  ].join("\n");
+}
+
+function clean() {
+  return [
+    `Resolving clawhub:${PACKAGE_LABEL}…`,
+    "",
+    metadataBlock(),
+    "",
+    `Installing ${PACKAGE_LABEL} from ClawHub…`,
   ].join("\n");
 }
 
@@ -187,8 +204,13 @@ switch (scenario) {
   case "blocked":
     console.log(malicious());
     break;
+  case "pending":
+  case "stale":
+    console.log(pending());
+    break;
+  case "clean":
   case "community":
-    console.log(community());
+    console.log(clean());
     break;
   case "suspicious":
   case "review":
@@ -196,7 +218,7 @@ switch (scenario) {
     break;
   default:
     console.error(
-      "Usage: node scripts/dev/clawhub-warning-demo.mjs [suspicious|malicious|community] [--plain|--raw-links-only]",
+      "Usage: node scripts/dev/clawhub-warning-demo.mjs [clean|pending|suspicious|malicious] [--plain|--raw-links-only]",
     );
     process.exitCode = 2;
 }
