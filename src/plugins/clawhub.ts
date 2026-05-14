@@ -426,7 +426,7 @@ function isNonRiskReason(trust: ClawHubPackageSecurityTrust, reason: string): bo
 function resolveClawHubRiskReasons(trust: ClawHubPackageSecurityTrust): string[] {
   const reasons: string[] = [];
   if (trust.blockedFromDownload) {
-    reasons.push("ClawHub has blocked downloads for this release");
+    reasons.push("Download disabled by ClawHub for this release");
   }
   const scanStatus = normalizeClawHubTrustToken(trust.scanStatus);
   if (scanStatus !== "clean" && !isNonRiskScanStatus(trust, scanStatus)) {
@@ -474,7 +474,7 @@ function formatClawHubTrustWarning(params: {
   const releaseLabel = formatClawHubReleaseLabel(params.packageName, params.version);
   if (params.riskReasons.length > 0) {
     return [
-      `ClawHub trust warning for "${releaseLabel}": ClawHub flagged this release as risky.`,
+      `ClawHub trust warning for "${releaseLabel}": ClawHub flagged this release for security review.`,
       "A plugin can execute code on this machine and access OpenClaw data, credentials, tools, and configured services.",
       `Findings: ${params.riskReasons.map((reason) => sanitizeTerminalText(reason)).join("; ")}.`,
       "Install only if you reviewed the package and trust the source.",
@@ -1257,10 +1257,9 @@ function logClawHubPackageSummary(params: {
   if (!pkg) {
     return;
   }
-  const familyLabel = pkg.family === "code-plugin" ? "code plugin" : pkg.family;
-  const verification = pkg.verification?.tier ? `, ${pkg.verification.tier} verification` : "";
+  const familyLabel = pkg.family === "code-plugin" ? "plugin" : pkg.family;
   params.logger?.info?.(
-    `ClawHub package ${pkg.name}@${params.version}: ${familyLabel}, ${pkg.channel} channel${verification}`,
+    `ClawHub package ${pkg.name}@${params.version}: ${familyLabel}, ${pkg.channel} channel`,
   );
   const compatibilityParts = [
     params.compatibility?.pluginApiRange
@@ -1275,7 +1274,7 @@ function logClawHubPackageSummary(params: {
   }
   if (pkg.channel !== "official") {
     params.logger?.warn?.(
-      `ClawHub package "${pkg.name}" is in the ${pkg.channel} channel, not the official OpenClaw channel. Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.`,
+      `ClawHub package "${pkg.name}" is in the ${pkg.channel} channel (not official). Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.`,
     );
   }
 }

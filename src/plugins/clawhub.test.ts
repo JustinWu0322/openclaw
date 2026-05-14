@@ -341,7 +341,7 @@ describe("installPluginFromClawHub", () => {
     expect(formatClawHubSpecifier({ name: "demo", version: "1.2.3" })).toBe("clawhub:demo@1.2.3");
   });
 
-  it("installs a ClawHub code plugin through the archive installer", async () => {
+  it("installs a ClawHub plugin through the archive installer", async () => {
     const logger = createLoggerSpies();
     const result = await installPluginFromClawHub({
       spec: "clawhub:demo",
@@ -356,7 +356,7 @@ describe("installPluginFromClawHub", () => {
     });
     expectSuccessfulClawHubInstall(result);
     expect(logger.info).toHaveBeenCalledWith(
-      "ClawHub package demo@2026.3.22: code plugin, official channel",
+      "ClawHub package demo@2026.3.22: plugin, official channel",
     );
     expect(logger.info).toHaveBeenCalledWith(
       "Compatibility: pluginApi=>=2026.3.22 minGateway=2026.3.0",
@@ -393,7 +393,7 @@ describe("installPluginFromClawHub", () => {
     expect(success.pluginId).toBe("demo");
     expect(success.clawhub?.clawhubChannel).toBe("community");
     expect(logger.warn).toHaveBeenCalledWith(
-      'ClawHub package "demo" is in the community channel, not the official OpenClaw channel. Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.',
+      'ClawHub package "demo" is in the community channel (not official). Treat it like third-party code: review the publisher, source, permissions, and install only if you trust it.',
     );
   });
 
@@ -430,7 +430,7 @@ describe("installPluginFromClawHub", () => {
       expect.stringContaining('ClawHub trust warning for "demo@2026.3.22"'),
     );
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("ClawHub has blocked downloads for this release"),
+      expect.stringContaining("Download disabled by ClawHub for this release"),
     );
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("A plugin can execute code on this machine"),
