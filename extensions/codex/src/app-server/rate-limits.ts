@@ -70,14 +70,15 @@ export function summarizeCodexRateLimits(
   value: JsonValue | undefined,
   nowMs = Date.now(),
 ): string | undefined {
-  const snapshots = collectCodexRateLimitSnapshots(value);
+  const snapshots = collectCodexRateLimitSnapshots(value).filter(snapshotHasDisplayableData);
   if (snapshots.length === 0) {
     return undefined;
   }
-  return snapshots
+  const summaries = snapshots
     .slice(0, 4)
     .map((snapshot) => summarizeRateLimitSnapshot(snapshot, nowMs))
-    .join("; ");
+    .filter((summary): summary is string => summary !== undefined);
+  return summaries.length > 0 ? summaries.join("; ") : undefined;
 }
 
 export function summarizeCodexAccountRateLimits(
@@ -112,7 +113,7 @@ export function summarizeCodexAccountUsage(
   value: JsonValue | undefined,
   nowMs = Date.now(),
 ): CodexAccountUsageSummary | undefined {
-  const snapshots = collectCodexRateLimitSnapshots(value);
+  const snapshots = collectCodexRateLimitSnapshots(value).filter(snapshotHasDisplayableData);
   if (snapshots.length === 0) {
     return undefined;
   }
@@ -191,7 +192,7 @@ function selectBlockingRateLimitReset(
   return blockingSnapshot ? selectSnapshotBlockingReset(blockingSnapshot, nowMs) : undefined;
 }
 
-function summarizeRateLimitSnapshot(snapshot: JsonObject, nowMs: number): string {
+function summarizeRateLimitSnapshot(snapshot: JsonObject, nowMs: number): string | undefined {
   const label = formatLimitLabel(snapshot);
   const windows = LIMIT_WINDOW_KEYS.flatMap((key) => {
     const window = readRateLimitWindow(snapshot, key);
@@ -200,7 +201,13 @@ function summarizeRateLimitSnapshot(snapshot: JsonObject, nowMs: number): string
   const reachedType =
     readString(snapshot, "rateLimitReachedType") ?? readString(snapshot, "rate_limit_reached_type");
   const suffix = reachedType ? ` (${formatReachedType(reachedType)})` : "";
-  return `${label}: ${windows.join(", ") || "available"}${suffix}`;
+  if (windows.length > 0) {
+    return `${label}: ${windows.join(", ")}${suffix}`;
+  }
+  if (reachedType) {
+    return `${label}: ${formatReachedType(reachedType)}`;
+  }
+  return undefined;
 }
 
 function collectCodexRateLimitSnapshots(value: JsonValue | undefined): JsonObject[] {
@@ -311,6 +318,18 @@ function readRateLimitWindow(
       "window_minutes",
     ),
   };
+}
+
+function snapshotHasDisplayableData(snapshot: JsonObject): boolean {
+  if (
+    readString(snapshot, "rateLimitReachedType") ??
+    readString(snapshot, "rate_limit_reached_type")
+  ) {
+    return true;
+  }
+  return readWindowEntries(snapshot).some(
+    (entry) => entry.window.usedPercent !== undefined || entry.window.resetsAtMs > 0,
+  );
 }
 
 function readOptionalNumberField(
