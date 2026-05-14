@@ -18,6 +18,10 @@ const plain = args.has("--plain") || process.env.NO_COLOR === "1" || process.env
 const useHyperlinks = !plain && process.stdout.isTTY && !args.has("--raw-links-only");
 const showRawLinks = !args.has("--no-raw-links");
 const columns = Math.max(72, Math.min(process.stdout.columns || 88, 104));
+const graphemeSegmenter =
+  typeof Intl !== "undefined" && "Segmenter" in Intl
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
 
 function osc8(label, url) {
   if (!useHyperlinks) {
@@ -46,7 +50,10 @@ function dim(value) {
 }
 
 function visibleLength(value) {
-  return stripAnsi(value).length;
+  return splitGraphemes(stripAnsi(value)).reduce(
+    (sum, grapheme) => sum + graphemeWidth(grapheme),
+    0,
+  );
 }
 
 function stripAnsi(value) {
@@ -54,6 +61,81 @@ function stripAnsi(value) {
     .replace(/\u001b\]8;;.*?\u0007/g, "")
     .replace(/\u001b\]8;;\u0007/g, "")
     .replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+function splitGraphemes(value) {
+  if (!value) {
+    return [];
+  }
+  if (!graphemeSegmenter) {
+    return Array.from(value);
+  }
+  try {
+    return Array.from(graphemeSegmenter.segment(value), (segment) => segment.segment);
+  } catch {
+    return Array.from(value);
+  }
+}
+
+function isZeroWidthCodePoint(codePoint) {
+  return (
+    (codePoint >= 0x0300 && codePoint <= 0x036f) ||
+    (codePoint >= 0x1ab0 && codePoint <= 0x1aff) ||
+    (codePoint >= 0x1dc0 && codePoint <= 0x1dff) ||
+    (codePoint >= 0x20d0 && codePoint <= 0x20ff) ||
+    (codePoint >= 0xfe20 && codePoint <= 0xfe2f) ||
+    (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
+    codePoint === 0x200d
+  );
+}
+
+function isFullWidthCodePoint(codePoint) {
+  if (codePoint < 0x1100) {
+    return false;
+  }
+  return (
+    codePoint <= 0x115f ||
+    codePoint === 0x2329 ||
+    codePoint === 0x232a ||
+    (codePoint >= 0x2e80 && codePoint <= 0x3247 && codePoint !== 0x303f) ||
+    (codePoint >= 0x3250 && codePoint <= 0x4dbf) ||
+    (codePoint >= 0x4e00 && codePoint <= 0xa4c6) ||
+    (codePoint >= 0xa960 && codePoint <= 0xa97c) ||
+    (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+    (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+    (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+    (codePoint >= 0xfe30 && codePoint <= 0xfe6b) ||
+    (codePoint >= 0xff01 && codePoint <= 0xff60) ||
+    (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+    (codePoint >= 0x1aff0 && codePoint <= 0x1aff3) ||
+    (codePoint >= 0x1aff5 && codePoint <= 0x1affb) ||
+    (codePoint >= 0x1affd && codePoint <= 0x1affe) ||
+    (codePoint >= 0x1b000 && codePoint <= 0x1b2ff) ||
+    (codePoint >= 0x1f200 && codePoint <= 0x1f251) ||
+    (codePoint >= 0x20000 && codePoint <= 0x3fffd)
+  );
+}
+
+function graphemeWidth(grapheme) {
+  if (!grapheme) {
+    return 0;
+  }
+  if (/[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3]/u.test(grapheme)) {
+    return 2;
+  }
+
+  let sawPrintable = false;
+  for (const char of grapheme) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint == null || isZeroWidthCodePoint(codePoint)) {
+      continue;
+    }
+    if (isFullWidthCodePoint(codePoint)) {
+      return 2;
+    }
+    sawPrintable = true;
+  }
+  return sawPrintable ? 1 : 0;
 }
 
 function padRight(value, width) {
@@ -81,17 +163,21 @@ function wrapWords(text, width) {
 }
 
 function box(title, lines) {
-  const maxInner = Math.max(54, Math.min(columns - 4, 78));
-  const topTitle = ` ${title} `;
-  const horizontalWidth = Math.max(maxInner, visibleLength(topTitle) + 2);
-  const top = `╭─${topTitle}${"─".repeat(horizontalWidth - visibleLength(topTitle) - 1)}╮`;
-  const bottom = `╰${"─".repeat(horizontalWidth + 1)}╯`;
+  const contentWidth = Math.max(54, Math.min(columns - 4, 78));
+  const titlePrefix = "╭─ ";
+  const titleSuffix = " ";
+  const titleText = `${titlePrefix}${title}${titleSuffix}`;
+  const totalWidth = Math.max(contentWidth + 4, visibleLength(titleText) + 1);
+  const titleFillWidth = Math.max(0, totalWidth - visibleLength(titleText) - 1);
+  const top = `${titleText}${"─".repeat(titleFillWidth)}╮`;
+  const bottom = `╰${"─".repeat(totalWidth - 2)}╯`;
+  const innerWidth = totalWidth - 4;
   const body = lines.flatMap((line) => {
     if (line === "") {
-      return [`│ ${" ".repeat(horizontalWidth)}│`];
+      return [`│ ${" ".repeat(innerWidth)} │`];
     }
-    return wrapWords(line, horizontalWidth - 2).map((wrapped) => {
-      return `│ ${padRight(wrapped, horizontalWidth)}│`;
+    return wrapWords(line, innerWidth).map((wrapped) => {
+      return `│ ${padRight(wrapped, innerWidth)} │`;
     });
   });
   return [top, ...body, bottom].join("\n");
